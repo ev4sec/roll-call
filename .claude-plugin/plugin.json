@@ -1,7 +1,7 @@
 {
   "name": "roll-call",
   "displayName": "Roll Call",
-  "description": "A self-enforcing development process for Claude Code: routes each change to the reviewer that owns it and proves the consult happened, gates publishing and packaging, and keeps the project's governing documents checked against reality. Includes a replaceable nine-seat review roster.",
+  "description": "A self-enforcing development process for Claude Code: routes each change to the reviewer that owns it and proves the consult happened, gates publishing and packaging, and keeps the project's governing documents checked against reality. Includes a replaceable nine-seat roster that covers your development stack and then some.",
   "version": "0.1.0",
   "author": {
     "name": "Erik Vazquez"
