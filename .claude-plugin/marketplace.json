@@ -1,13 +1,17 @@
 {
   "name": "roll-call",
   "description": "The roll-call development engine for Claude Code.",
-  "owner": { "name": "Erik Vazquez" },
+  "owner": {
+    "name": "Erik Vazquez"
+  },
   "plugins": [
     {
       "name": "roll-call",
       "displayName": "Roll Call",
-      "description": "Routes each change to the agent that owns it, and proves the consult happened. Nine specialist review agents, enforcement hooks, and the documents they reason from.",
-      "author": { "name": "Erik Vazquez" },
+      "description": "A self-enforcing development process for Claude Code: routes each change to the reviewer that owns it and proves the consult happened, gates publishing and packaging, and keeps the project's governing documents checked against reality. Includes a replaceable nine-seat review roster.",
+      "author": {
+        "name": "Erik Vazquez"
+      },
       "category": "development",
       "license": "MIT",
       "source": "./"

@@ -1,11 +1,17 @@
 {
   "name": "roll-call",
   "displayName": "Roll Call",
-  "description": "A development engine that routes each change to the agent that owns it, and proves the consult happened. Nine specialist review agents, enforcement hooks, and the documents they reason from.",
+  "description": "A self-enforcing development process for Claude Code: routes each change to the reviewer that owns it and proves the consult happened, gates publishing and packaging, and keeps the project's governing documents checked against reality. Includes a replaceable nine-seat review roster.",
   "version": "0.1.0",
   "author": {
     "name": "Erik Vazquez"
   },
   "license": "MIT",
-  "keywords": ["agents", "code-review", "architecture", "process", "governance"]
+  "keywords": [
+    "process",
+    "code-review",
+    "governance",
+    "hooks",
+    "agents"
+  ]
 }
