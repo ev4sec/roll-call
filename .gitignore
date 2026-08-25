@@ -1,0 +1,10 @@
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/
+.DS_Store
+
+# Working notes and the source material the template was derived from.
+# Not shipped: it is scaffolding for building the plugin, not part of it.
+_working/

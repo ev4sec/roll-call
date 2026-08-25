@@ -1,0 +1,85 @@
+{
+  "description": "roll-call: routes each change to the agent that owns it, proves the consult happened, and guards the irreversible. Every hook runs through run.sh, which resolves a Python 3.11+ interpreter and degrades with a readable message when none exists.",
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "sh \"${CLAUDE_PLUGIN_ROOT}/hooks/run.sh\" session_start",
+            "timeout": 10,
+            "statusMessage": "Checking roll-call setup"
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Bash|PowerShell",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "sh \"${CLAUDE_PLUGIN_ROOT}/hooks/run.sh\" publish_guard",
+            "timeout": 10,
+            "statusMessage": "Checking publish policy"
+          },
+          {
+            "type": "command",
+            "command": "sh \"${CLAUDE_PLUGIN_ROOT}/hooks/run.sh\" unreviewed_agent_edits",
+            "timeout": 15,
+            "statusMessage": "Checking for unreviewed agent edits"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit|MultiEdit|NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "sh \"${CLAUDE_PLUGIN_ROOT}/hooks/run.sh\" consult_router",
+            "timeout": 15,
+            "statusMessage": "Routing the change to its owning agent"
+          },
+          {
+            "type": "command",
+            "command": "sh \"${CLAUDE_PLUGIN_ROOT}/hooks/run.sh\" security_scan",
+            "timeout": 60,
+            "statusMessage": "Security scanning edited code"
+          },
+          {
+            "type": "command",
+            "command": "sh \"${CLAUDE_PLUGIN_ROOT}/hooks/run.sh\" backend_tests",
+            "timeout": 300,
+            "statusMessage": "Running tests"
+          },
+          {
+            "type": "command",
+            "command": "sh \"${CLAUDE_PLUGIN_ROOT}/hooks/run.sh\" dependency_audit",
+            "timeout": 200,
+            "statusMessage": "Auditing dependencies"
+          },
+          {
+            "type": "command",
+            "command": "sh \"${CLAUDE_PLUGIN_ROOT}/hooks/run.sh\" artifact_check",
+            "timeout": 320,
+            "statusMessage": "Building and inspecting the distribution"
+          }
+        ]
+      },
+      {
+        "matcher": "Agent",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "sh \"${CLAUDE_PLUGIN_ROOT}/hooks/run.sh\" agent_watch",
+            "timeout": 10,
+            "statusMessage": "Recording the consult"
+          }
+        ]
+      }
+    ]
+  }
+}

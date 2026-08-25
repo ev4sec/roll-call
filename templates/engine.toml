@@ -1,0 +1,88 @@
+# The one place a project describes itself to the engine.
+#
+# Everything project-specific that the hooks need lives here, so the hooks
+# themselves stay portable. This file belongs to your project and is yours to
+# edit. The hooks that read it ship with the roll-call plugin and are read-only;
+# you never have to touch them.
+#
+# Every key has a default built into the hooks. A missing key is not an error;
+# it means "use the default". A missing file is not an error either, so a hook
+# dropped into a project with no engine.toml still runs, in its most generic
+# form.
+
+[project]
+# Human-readable name. Appears in every hook message the session sees.
+name = "PROJECT_NAME"
+# Short lowercase identifier. Package name, import path, CLI name.
+slug = "project_slug"
+# Where the product's own code lives, repo-relative, POSIX separators.
+# The post-agent diff guard reads this, and only this.
+source_root = "src/project_slug"
+
+[tests]
+# Directory the suite lives in. The test hook no-ops if it does not exist.
+dir = "tests"
+# Argv after the interpreter. Replace for a non-Python project, e.g.
+#   command = ["npm", "test", "--silent"]   with interpreter = ""
+command = ["-m", "pytest", "-q", "tests"]
+# "" means "use sys.executable". Any other value is run as a bare executable.
+interpreter = ""
+# Seconds. The hook reports a timeout as advice, never as a failure.
+timeout = 280
+# A file whose presence marks the repository root. Used to resolve the right
+# tree when an edit happens inside a git worktree.
+root_marker = "pyproject.toml"
+
+[dependencies]
+# Manifests that trigger the dependency audit.
+manifests = ["pyproject.toml", "package.json", "requirements.txt",
+             "package-lock.json", "uv.lock", "poetry.lock"]
+# Packages this project refuses on policy grounds, as regex fragments. A match
+# BLOCKS rather than warns, because a policy refusal is not a CVE. Empty is a
+# valid and common answer; fill it only where the project has an actual stated
+# constraint a dependency could violate.
+#
+# Example from the project this engine came from, which banned telemetry:
+#   banned = ["sentry-sdk", "posthog", "mixpanel", "datadog", "newrelic"]
+banned = []
+# Why a banned package is refused. Quoted back to the session verbatim, so
+# name the document that records the constraint.
+banned_reason = "This project's stated constraints refuse this dependency. See CLAUDE.md."
+
+[publish]
+# Hosts whose remotes count as publication. Substring match on the resolved
+# remote hostname, so "github" catches GitHub Enterprise too.
+gated_hosts = ["github"]
+# Set false where branch pushes carry standing pre-approval and only package
+# uploads should stop. The package-upload gate is never disabled by this.
+gate_git_push = true
+# Registry name used in the prompt text.
+registry = "PyPI"
+
+[artifact]
+# Set false for anything that is not a distributable package. The artifact
+# hook then no-ops entirely, which is the right answer for an application.
+enabled = true
+# Files that trigger a build-and-inspect.
+triggers = ["pyproject.toml", "manifest.in", ".gitignore"]
+# Paths that must NOT appear inside the built artifact, as regex.
+# The engine's own machinery is on this list by default and should stay there.
+forbidden = [
+  '(^|/)\.claude/',
+  '(^|/)CLAUDE\.md$',
+  '(^|/)\.git/',
+  '(^|/)\.env',
+  '\.(db|sqlite3?)$',
+  '\.(key|pem|p12|pfx)$',
+  '(^|/)\.venv/',
+]
+# Paths that MUST appear in the wheel, as regex. Empty by default: a required
+# file is a project fact, and asserting one that does not apply is how a guard
+# gets switched off. Add entries where an install is broken without them.
+required_in_wheel = []
+
+[scan]
+# Baseline security checks apply to every project and are in the hook.
+# Project-specific checks go in `.claude/scan-rules.toml`, which is optional.
+# The suppression comment is `<slug>: allow <check-id> - <reason>`.
+enabled = true

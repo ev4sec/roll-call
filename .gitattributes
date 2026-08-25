@@ -1,0 +1,8 @@
+# run.sh is executed by sh on every platform; a CRLF checkout would inject \r
+# into the shebang and every line. Pin LF for everything the machinery runs.
+* text=auto
+*.sh text eol=lf
+*.py text eol=lf
+*.json text eol=lf
+*.toml text eol=lf
+*.md text eol=lf

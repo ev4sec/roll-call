@@ -1,0 +1,224 @@
+# Which agent owns which change, as data rather than prose.
+#
+# **Why this is a file and not a paragraph.** The operating procedure carried a
+# prose routing table for as long as the roster existed, and it did not work. On
+# the project this engine came from, one session shipped a format-version bump
+# that moved DDL, split two modules, relicensed the project and changed the agent
+# roster itself, and consulted **zero agents**. Every one of those changes was
+# named in that prose table. The instruction was read at session start and lost
+# by the third edit.
+#
+# So routing is machine-readable, `consult_router.py` reads it on every write,
+# and an owed consult that has not happened produces a message the session cannot
+# scroll past. Prefer a test to a paragraph; this is that rule applied to the
+# process itself.
+#
+# ## Fields
+#
+#   id        Stable identifier. Referenced by tests; do not renumber casually.
+#   agents    Who to ask. More than one means ask them in PARALLEL, one message,
+#             background. Never serially.
+#   paths     Glob patterns, matched against repo-relative POSIX paths.
+#   question  The question to actually ask. Routing that names an agent but not a
+#             question produces a survey; ask for a recommendation stated as the
+#             thing to build.
+#   level     "required" -> the router blocks with this message until the consult
+#                           is on the ledger.
+#             "advised"  -> mentioned once, never blocks.
+#   why       The cost of skipping it. Kept short and concrete.
+#
+# ## Freshness
+#
+# A consult counts if that agent ran within `fresh_hours`. That is deliberately
+# time-based rather than per-commit: the design loop is consult -> implement ->
+# commit -> commit -> commit, and re-prompting on every commit inside one slice is
+# how an alarm gets ignored. An alarm that cries wolf is worse than no alarm.
+#
+# ## Adding a rule
+#
+# The bar is the same as the bar for a seat: the rule must name a decision whose
+# cost is real and whose owner is not the primary session. **A rule that fires on
+# every edit in a busy directory will be muted within a day and takes the credible
+# rules down with it.**
+#
+# ## The two guards that keep this honest
+#
+# Every rule must name a seat that exists, and **every seat must have a rule**: 
+# an agent the mechanism never invokes is a roster entry pretending to be
+# coverage. One seat was exactly that for two days on the origin project and
+# nobody noticed. `tests/test_consult_router.py` asserts both directions.
+#
+# ---------------------------------------------------------------------------
+# INSTANTIATION: everything below is an EXAMPLE. Delete the rules that do not
+# apply and write the project's own. A rule copied from another project is worse
+# than no rule: it fires on paths that do not exist, teaches the session that the
+# router is noise, and leaves the real decisions unrouted.
+#
+# Write a rule when you can answer all three: which decision, whose cost, which
+# seat. If any answer is vague, there is no rule yet.
+# ---------------------------------------------------------------------------
+
+[settings]
+fresh_hours = 24
+# More than this many agents owed at once means the change is too broad to route.
+# Narrow the change, or run a full design round deliberately.
+max_parallel = 4
+
+# ------------------------------------------------------------ data and shape --
+
+[[rule]]
+id = "data-model"
+agents = ["systems-architect"]
+paths = [
+  "src/PROJECT_SLUG/models.py",
+  "src/PROJECT_SLUG/store/**",
+]
+level = "required"
+question = """
+This change adds, removes, renames or reclassifies a persisted field. State the
+decision as the thing to build: the field, its type, nullability, and what a
+migration costs. Price the alternative that would not get built.
+"""
+why = "A shipped column is a migration plus a re-interpretation of every row already written."
+
+[[rule]]
+id = "public-interface"
+agents = ["systems-architect"]
+paths = ["src/PROJECT_SLUG/api/**", "src/PROJECT_SLUG/plugins/**"]
+level = "required"
+question = "This alters a contract someone outside this repository implements against. Is the shape right, and what does it cost to change after it ships?"
+why = "An interface is unfrozen only until it is published."
+
+# ------------------------------------------------------------------ security --
+
+[[rule]]
+id = "untrusted-input"
+agents = ["security-engineer"]
+paths = ["src/PROJECT_SLUG/net/**", "src/PROJECT_SLUG/parsers/**"]
+level = "required"
+question = """
+This touches a boundary where input arrives from outside the process. Name the
+trust assumption being made, where it is enforced, and what a hostile input
+reaches if the enforcement is wrong.
+"""
+why = "A single chokepoint is a structural property. Once three modules each parse input directly, there is no chokepoint left to add."
+
+[[rule]]
+id = "dependencies"
+agents = ["security-engineer"]
+paths = ["pyproject.toml", "package.json", "requirements.txt"]
+level = "required"
+question = "A dependency or packaging change. Supply-chain risk, what it pulls in transitively, and whether the built artifact's contents still hold."
+why = "The manifest is the one line that pulls in arbitrary code."
+
+# ------------------------------------------------------------ what users read --
+
+[[rule]]
+id = "user-facing-output"
+agents = ["practitioner-critic"]
+paths = ["src/PROJECT_SLUG/report/**", "src/PROJECT_SLUG/cli/**"]
+level = "required"
+question = """
+This is what the user actually reads. Does it state its own limits honestly,
+distinguish 'not checked' from 'checked and clean', and survive the moment it
+breaks halfway through? What would a skeptical reader attack first?
+"""
+why = "Error text and output copy are the product at the moment it is being judged."
+
+[[rule]]
+id = "domain-content"
+agents = ["content-curator"]
+paths = ["content/**", "src/PROJECT_SLUG/content/**"]
+level = "required"
+question = """
+Review or author this content: does it actually do what it claims, how does its
+correctness check distinguish a real result from a trivial one, and does its
+provenance permit shipping it?
+"""
+why = "A traced-provenance corpus is a differentiated asset and it stops being one the moment there is a way around the guard. Delete this rule and the content-curator seat together if the project has no content asset."
+
+[[rule]]
+id = "frontend"
+agents = ["frontend-architect"]
+paths = ["src/PROJECT_SLUG/web/**", "**/*.tsx", "**/*.jsx", "**/*.ts", "**/*.css"]
+level = "required"
+question = """
+Component structure, state ownership, and what this does at realistic data
+volume: name the number. Name the untrusted-text rendering path explicitly.
+"""
+why = "A screen that is pleasant at forty rows and unusable at four thousand is the specific failure this seat exists to prevent."
+
+# ----------------------------------------------------------- scope and worth --
+
+[[rule]]
+id = "scope-moves"
+agents = ["scope-validator"]
+paths = [".claude/slice.md", ".claude/roadmap.md"]
+level = "required"
+question = """
+Something moved on or off the bench. Should this be built at all, now, in this
+phase? Refuse it if it is build-ahead, if it is out-of-scope work wearing an
+in-scope name, or if it makes a deferred item harder later.
+"""
+why = "Scope creep does not arrive as a feature request; it arrives as an extra line in the slice file."
+
+[[rule]]
+id = "worth-and-ordering"
+agents = ["commercial-strategist"]
+paths = [".claude/roadmap.md"]
+level = "required"
+question = """
+Is this worth building, and worth building before the thing it displaces? Price
+the alternative that would not get built. Every claim names a citable external
+source or a named prospect, never a recollection.
+
+Two clauses a path glob cannot express, and both are yours to apply:
+1. If this edit pulls an item into the current phase, it is a scope move wearing
+   a roadmap edit. Hand it to scope-validator before it lands.
+2. If it proposes amending the vision or the constraints, the proposal is
+   incomplete unless it enumerates every refusal it would unblock, and
+   scope-validator is a required co-consult producing that list independently.
+"""
+why = "Without this seat nobody on the roster prices anything, and ordering questions pile up on the maintainer disguised as scope questions."
+
+[[rule]]
+id = "vision-and-constraints"
+agents = ["approval-judge"]
+paths = ["CLAUDE.md", ".claude/vision.md"]
+level = "required"
+question = "Does this edit change a non-negotiable constraint, the scope, or a recorded contract? PROCEED or APPROVAL REQUIRED."
+why = "Scope and the constraints are the maintainer's lane and the one thing agents must not decide."
+
+[[rule]]
+id = "posture"
+agents = ["approval-judge"]
+paths = ["LICENSE", "NOTICES", "README.md"]
+level = "required"
+question = "Does the repository's declared posture still match the vision document? Name any declaration site that disagrees, and say which one is wrong."
+why = "On the origin project, LICENSE contradicted the stated business intent for four days, past six agents and 978 tests, because nothing read one against the other."
+
+[[rule]]
+id = "vision-drift"
+agents = ["commercial-strategist"]
+paths = [".claude/vision.md"]
+level = "advised"
+question = "Does the vision still describe the product that exists, and the market it is being sold into? You own drift of the vision AGAINST the tree; approval-judge owns the opposite arrow. Same question, two directions, and neither covers the other."
+why = "A gate ruling from a stale premise does not error; it returns confident wrong verdicts."
+
+# ----------------------------------------------------------------- advisory ---
+
+[[rule]]
+id = "core-engine"
+agents = ["systems-architect"]
+paths = ["src/PROJECT_SLUG/engine/**"]
+level = "advised"
+question = "Concurrency correctness, cancellation and resume semantics, and whether this still works with nobody watching it."
+why = "The execution core is one of the few things whose defects are expensive to find later."
+
+[[rule]]
+id = "new-test-surface"
+agents = ["test-strategist"]
+paths = ["tests/**"]
+level = "advised"
+question = "What would still be broken if every one of these passed?"
+why = "The most expensive defects tend to be coverage failures rather than logic failures."

@@ -1,0 +1,91 @@
+---
+description: Check that roll-call is actually working in this repository. Reports dead routing rules, silent hooks, unfilled placeholders, and template drift.
+allowed-tools: Read, Glob, Grep, Bash
+---
+
+# Check the engine
+
+Every guard here is one that fails **silently** when it fails. A routing rule
+whose paths no longer exist does not error, it simply never fires. A hook with
+no interpreter does not crash the session, it returns nothing. In both cases the
+user believes they are covered and they are not, which is the specific failure
+this whole engine argues against.
+
+So the job is to find guards that are asleep and say so out loud.
+
+Report only what is wrong or unknown. **A healthy engine gets a short answer.**
+A report that lists twenty passing checks trains the reader to skim it.
+
+## 1. Can the machinery run at all
+
+- `python3 --version`, then `python`, then `py -3`. Is one of them 3.11+?
+- If not, that is the headline. Every hook is inert. Nothing else matters until
+  it is fixed, so say that first and keep the rest brief.
+
+## 2. Is the project described
+
+- Does `.claude/engine.toml` exist and parse?
+- Does `source_root` point at a directory that exists?
+- Does the configured test command actually run here?
+- Flag keys that look like leftovers from the template rather than this project.
+
+## 3. Is the routing table alive
+
+This is the most valuable section. For each rule in `.claude/routing.toml`:
+
+- **Dead rule.** Do its globs match any file in the repository? A rule matching
+  nothing is a seat nobody will ever be sent to.
+- **Phantom seat.** Does every agent it names exist in `.claude/agents/`? A rule
+  naming a missing agent blocks on a consult that cannot happen.
+- **Overbroad rule.** Does it match a very large share of the tree? Say so.
+  A rule that fires on everything gets muted, and it takes the credible rules
+  with it.
+- **Posture.** How many rules are `advised` versus `required`? If everything is
+  still `advised` long after init, the engine is advising and enforcing nothing.
+  Mention it once, without nagging.
+
+## 4. What the engine still does not know
+
+Count and locate the remaining `{{...}}` placeholders across `.claude/` and
+`CLAUDE.md`.
+
+Weight them. A missing `{{SCALE_NUMBER}}` costs one agent some precision. An
+unfilled vision or constraints section means `scope-validator` and
+`approval-judge` are ruling from a blank record, which is worse than not asking
+them. Name the ones that disable a seat.
+
+Check `tests/test_permanent_refusals.py`. If it still holds template content, it
+is failing on purpose and should be. A suite that is green **including** that
+test has been made green by deleting a guard, and that is worth saying plainly.
+
+## 5. Are the guards actually firing
+
+- Does `.claude/.consults` exist and have recent entries? An empty ledger in an
+  active repository means agents are not being consulted at all, which the
+  router can only report on, never cause.
+- Is `.claude/agent-findings.md` growing? A permanent record with no entries is
+  a roster nobody is using.
+- Does `.claude/scan-rules.toml` exist? Optional, but its absence means the
+  security scan is running its generic baseline only.
+
+## 6. Template drift
+
+roll-call deliberately never rewrites files in a repository, so improvements to
+the shipped templates do not reach an existing install.
+
+Compare `.claude/` against `${CLAUDE_PLUGIN_ROOT}/templates/`. Where a shipped
+template has moved ahead, name the file and summarize what changed. **Do not
+offer to overwrite anything.** Describe the difference and let the user decide,
+because the local copy is the one they tuned and that is the whole reason it is
+theirs.
+
+## Output
+
+Group by severity:
+
+- **Broken.** A guard that cannot run. Name the fix.
+- **Asleep.** A guard that runs but can never fire. Usually a dead rule.
+- **Unknown.** Judgment the engine is missing, ordered by which seat it disables.
+- **Drift.** Templates that moved on.
+
+If everything is healthy, say so in one line and stop.
