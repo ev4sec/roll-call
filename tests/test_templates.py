@@ -31,8 +31,8 @@ ROUTING = TEMPLATES / "routing.toml"
 #: Documents init writes into `.claude/`. Anything referencing these is fine.
 SCAFFOLD = {
     "engine.toml", "routing.toml", "operating-procedure.md", "agent-brief.md",
-    "agent-findings.md", "slice.md", "vision.md", "roadmap.md",
-    "architecture.md", "security-invariants.md", "LESSONS.md",
+    "measurement-traps.md", "agent-findings.md", "slice.md", "vision.md",
+    "roadmap.md", "architecture.md", "security-invariants.md", "LESSONS.md",
     "parked-roles.md",
 }
 

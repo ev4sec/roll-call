@@ -9,9 +9,10 @@ they do not go wrong again in your answer.
      it short. Everything added here is read nine times per round, so a
      paragraph that is merely nice to have is a tax on every consult.
 
-     The sections below are portable and should stay. The "known measurement
-     traps" list starts nearly empty on a new project and fills as you are
-     burned; the entries kept below are the ones that generalize. -->
+     The sections below are portable and should stay. The measurement traps
+     live in `.claude/measurement-traps.md`, where an entry costs tokens only
+     on the consults that actually measure; record new traps there, never
+     here. -->
 
 ## You are checked, and you have been wrong
 
@@ -55,52 +56,13 @@ Your report re-enters a context that pays for every word. Findings beyond your
 seat's cap get one line each, never silence, and raw tool output is quoted
 only where a specific line supports a specific finding.
 
-## Known measurement traps
+## Measurement traps live in their own file
 
-Each of these produced a confidently wrong conclusion on a real project. They
-generalize; add this project's own as they are found.
-
-- **Counting loop iterations does not measure contention.** The sampling window
-  closes before the worker enters the blocking call, so the count looks normal
-  and you conclude the lock was free. Measure the **maximum gap between
-  consecutive `perf_counter()` samples** instead. This produced a false negative
-  for two different reviewers on the same question, in the same session.
-- **A single timing proves nothing about a pattern; growth is the signal.**
-  `(a+)+$` is imperceptible at n=20 and twenty-one seconds at n=28. Report a
-  curve.
-- **"It is optimized away on this version" needs a timing, not a
-  recollection.** That exact claim has been made and was false.
-- **Reasoning about a build backend is not evidence about this repository.**
-  `.git/info/exclude` hides paths from git but not from the packager. Build the
-  artifact and read it.
-- **A rule that holds for one member of a family can fail for another.** Before
-  generalizing across a family of transformations, check the member with the
-  least convenient algebra.
-- **Your environment is not the project's floor.** Say which version and
-  platform you measured on.
-- **Declared is not installed, and a green suite proves neither.** Two test
-  plugins were listed in the dev extras and absent from the environment the
-  suite ran in. The second was worse: a config option was set, the runner
-  printed `Unknown config option` on every run, and **no async test was
-  collected at all**, so the only async code in the tree had never executed.
-  **Two absent things can hold each other up.** When you claim a check runs,
-  verify the checker is installed, not that the manifest mentions it.
-- **A green type-check on your own OS is not evidence about any other.** Type
-  checkers evaluate platform comparisons *for the platform they run on*, so a
-  platform dispatch written as an if/elif chain narrows differently per OS. A
-  file passed on Windows and failed CI on Linux with `Statement is unreachable`.
-  Prefer a dict keyed by platform over branches, and run the checker for each
-  target platform.
-- **A mutation test that does not apply looks exactly like a passing one.**
-  Mutating a file through a shell heredoc, a `str.replace()` whose target
-  contained `\x00` silently matched nothing: the backslash was consumed before
-  Python saw it. The suite then reported all green, which reads as *"this guard
-  is weak, the mutation survived"* and is the exact opposite of the truth.
-  **Assert the mutation landed before believing the result:** diff the file, or
-  mutate with an editor rather than a shell heredoc.
-- **A carve-out in a guard needs more tests on its boundary than in its
-  middle.** If you propose narrowing a guard, propose the boundary cases in the
-  same breath.
+If your answer will carry a `[measured]` or `[verified]` claim about
+performance, concurrency, builds, packaging, or tooling, read
+`.claude/measurement-traps.md` first. Every entry there produced a confidently
+wrong conclusion on a real project. **A measurement made without reading it
+does not get the `[measured]` label.**
 
 ## State the cost of what you would remove
 
@@ -137,6 +99,8 @@ If you are shown a correction to your own earlier answer, check it. One
   work; it is the file most likely to stop you re-deriving something that
   shipped.
 - `.claude/security-invariants.md`: numbered properties; cite IDs.
+- `.claude/measurement-traps.md`: read before any `[measured]` or `[verified]`
+  claim about performance, concurrency, builds, packaging, or tooling.
 - `.claude/roadmap.md`: deferred work and what must stay possible.
 - `.claude/architecture.md`: settled technical decisions.
 - `.claude/agent-findings.md`: the track record above.

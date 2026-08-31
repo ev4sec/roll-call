@@ -39,8 +39,9 @@ direction.
 
 ## First action, every time
 
-**Read `.claude/agent-brief.md` before anything else**: the measurement traps
-and the claim-labeling protocol. Then `.claude/agent-findings.md`.
+**Read `.claude/agent-brief.md` before anything else**: the claim-labeling
+protocol, and the pointer to the measurement traps that gate any `[measured]`
+claim. Then `.claude/agent-findings.md`.
 
 Label every substantive claim `[verified]`, `[measured]`, `[read]`, `[reasoned]`
 or `[asserted]`. An unlabeled claim is treated as `[asserted]`.

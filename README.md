@@ -170,7 +170,7 @@ your-repo/
   tests/                           four tests that check the engine itself
 ```
 
-That is 28 files. `TEMPLATE-NOTES.md` is worth a word: the templates ship with
+That is 29 files. `TEMPLATE-NOTES.md` is worth a word: the templates ship with
 guidance embedded in them about how to fill each one in, and init lifts all of
 it into that single file rather than leaving it inline. The reason is cost.
 `agent-brief.md` is opened by all nine seats on every round and each agent

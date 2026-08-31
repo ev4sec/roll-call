@@ -53,8 +53,8 @@ TEMPLATES = PLUGIN_ROOT / "templates"
 #: Written to `.claude/`. Order is cosmetic; the report reads better grouped.
 DOCUMENTS = (
     "engine.toml", "routing.toml", "operating-procedure.md", "agent-brief.md",
-    "agent-findings.md", "slice.md", "vision.md", "roadmap.md",
-    "architecture.md", "security-invariants.md", "LESSONS.md",
+    "measurement-traps.md", "agent-findings.md", "slice.md", "vision.md",
+    "roadmap.md", "architecture.md", "security-invariants.md", "LESSONS.md",
     "parked-roles.md",
 )
 

@@ -29,8 +29,9 @@ A finding without an exploit path is a hypothesis.
 
 ## First action, every time
 
-**Read `.claude/agent-brief.md` before anything else**: the measurement traps
-and the claim-labeling protocol. Then `.claude/agent-findings.md`, the record of
+**Read `.claude/agent-brief.md` before anything else**: the claim-labeling
+protocol, and the pointer to the measurement traps that gate any `[measured]`
+claim. Then `.claude/agent-findings.md`, the record of
 what agents have claimed here and whether it survived reproduction.
 
 Label every substantive claim `[verified]`, `[measured]`, `[read]`, `[reasoned]`

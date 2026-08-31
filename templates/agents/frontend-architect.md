@@ -36,8 +36,9 @@ trigger is right. Know which kind you are.
 
 ## First action, every time
 
-**Read `.claude/agent-brief.md` before anything else**: the measurement traps
-and the claim-labeling protocol. Then `.claude/agent-findings.md`.
+**Read `.claude/agent-brief.md` before anything else**: the claim-labeling
+protocol, and the pointer to the measurement traps that gate any `[measured]`
+claim. Then `.claude/agent-findings.md`.
 
 Label every claim `[verified]`, `[measured]`, `[read]`, `[reasoned]` or
 `[asserted]`. **You have Bash: if a claim is about what a bundler, a renderer or
