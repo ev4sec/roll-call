@@ -13,10 +13,10 @@
 # newer wins. The version floor is real rather than cosmetic: the hooks read
 # TOML with `tomllib`, which entered the standard library in 3.11.
 #
-# When nothing suitable is found this says so once, in words, and exits 0. It
-# must never block a tool call. A guard that cannot run should make its absence
-# visible and then get out of the way, because a session wedged by its own
-# tooling is a worse outcome than an unguarded edit.
+# When nothing suitable is found this says so once a day per machine, in
+# words, and exits 0. It must never block a tool call. A guard that cannot run
+# should make its absence visible and then get out of the way, because a
+# session wedged by its own tooling is a worse outcome than an unguarded edit.
 #
 # Usage: sh run.sh <hook-name> [args...]      e.g. sh run.sh consult_router
 
@@ -45,6 +45,20 @@ if command -v py >/dev/null 2>&1; then
     if py -3 -c "$VERSION_PROBE" >/dev/null 2>&1; then
         exec py -3 "$TARGET" "$@"
     fi
+fi
+
+# One warning per machine per day. This hook fires up to five times per file
+# edit, and the condition cannot change mid-session without an install, so
+# repeating the identical message trains the reader to scroll past the one
+# copy that matters. No Python exists here by definition, so the stamp is pure
+# shell; without CLAUDE_PLUGIN_DATA it degrades to warning on every
+# invocation, the same direction session_start degrades.
+if [ -n "${CLAUDE_PLUGIN_DATA:-}" ]; then
+    STAMP="$CLAUDE_PLUGIN_DATA/no-python-warned-$(date +%Y%m%d)"
+    [ -f "$STAMP" ] && exit 0
+    mkdir -p "$CLAUDE_PLUGIN_DATA" 2>/dev/null
+    rm -f "$CLAUDE_PLUGIN_DATA"/no-python-warned-* 2>/dev/null
+    : > "$STAMP" 2>/dev/null
 fi
 
 printf '%s' '{"systemMessage":"roll-call needs Python 3.11 or newer on PATH and could not find one. Its guards are inactive until that is fixed. Install Python 3.11+, or run /roll-call:doctor for details."}'

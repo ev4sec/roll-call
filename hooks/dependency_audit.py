@@ -165,6 +165,15 @@ def main() -> int:
             }))
         return 0
 
+    # The missing-auditor nag repeats identically on every manifest edit until
+    # pip-audit is installed. Teach once per session in full, then collapse to
+    # one line that still says the CVEs are unchecked: collapsed, not silenced,
+    # because "still unchecked" must never look like "audited and clean".
+    if (not ran and findings[0].startswith("pip-audit is not installed")
+            and not _engine.session_once(data.get("session_id"), "pip-audit-missing")):
+        findings = ["pip-audit still not installed (full advisory earlier this "
+                    "session); dependency CVEs remain UNCHECKED."]
+
     print(json.dumps({
         "systemMessage": f"{label}: dependency audit flagged {len(findings)} item(s).",
         "hookSpecificOutput": {

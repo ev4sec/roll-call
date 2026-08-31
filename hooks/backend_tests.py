@@ -125,24 +125,41 @@ def main() -> int:
             command, capture_output=True, text=True, cwd=repo, timeout=timeout,
         )
     except subprocess.TimeoutExpired:
-        print(json.dumps({
-            "systemMessage": f"{label}: tests timed out after {timeout}s.",
-            "hookSpecificOutput": {
-                "hookEventName": "PostToolUse",
-                "additionalContext": (
-                    f"The test suite did not finish within {timeout}s. That is "
-                    f"usually a hang -- an unbounded await, a pattern match with "
-                    f"no input cap, or a real network call a socket-blocking "
-                    f"fixture should have caught -- but it is equally the shape "
-                    f"of a suite that has simply outgrown its budget. Run the "
-                    f"suite yourself before acting on either reading. If it "
-                    f"merely got slower, raise `tests.timeout` in the engine "
-                    f"config: a hook that reports a timeout on every edit trains "
-                    f"the reader to scroll past it, which costs exactly the day "
-                    f"it fires for a real reason."
-                ),
-            },
-        }))
+        # The full advisory teaches once per session. Repeats collapse to one
+        # line rather than nothing, because this hook is silent on success and
+        # a suppressed warning would make "still hanging" look like "clean".
+        # Its own text names the failure mode ("trains the reader to scroll
+        # past it"); this is that sentence, finally implemented.
+        if _engine.session_once(data.get("session_id"), "tests-timeout"):
+            print(json.dumps({
+                "systemMessage": f"{label}: tests timed out after {timeout}s.",
+                "hookSpecificOutput": {
+                    "hookEventName": "PostToolUse",
+                    "additionalContext": (
+                        f"The test suite did not finish within {timeout}s. That is "
+                        f"usually a hang -- an unbounded await, a pattern match with "
+                        f"no input cap, or a real network call a socket-blocking "
+                        f"fixture should have caught -- but it is equally the shape "
+                        f"of a suite that has simply outgrown its budget. Run the "
+                        f"suite yourself before acting on either reading. If it "
+                        f"merely got slower, raise `tests.timeout` in the engine "
+                        f"config: a hook that reports a timeout on every edit trains "
+                        f"the reader to scroll past it, which costs exactly the day "
+                        f"it fires for a real reason."
+                    ),
+                },
+            }))
+        else:
+            print(json.dumps({
+                "systemMessage": f"{label}: tests timed out again ({timeout}s).",
+                "hookSpecificOutput": {
+                    "hookEventName": "PostToolUse",
+                    "additionalContext": (
+                        f"The test suite timed out again ({timeout}s; full advisory "
+                        f"earlier this session). It has still not been shown green."
+                    ),
+                },
+            }))
         return 0
     except OSError as exc:
         print(json.dumps({

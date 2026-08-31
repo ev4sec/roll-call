@@ -154,6 +154,53 @@ def slug() -> str:
     return str(get("project", "slug"))
 
 
+ONCE_TTL_SECONDS = 48 * 3600
+
+
+def session_once(session_id: object, key: str) -> bool:
+    """True the first time this (session, key) pair is seen; records the sighting.
+
+    Exists for advisories that repeat verbatim while a condition persists (a
+    hanging suite, a missing auditor). The first emission teaches; the copies
+    only spend attention and context. Callers must collapse, never silence:
+    the repeat emission should be one line that still says the condition
+    holds, because these hooks are silent on success and a fully suppressed
+    warning would make "still broken" indistinguishable from "clean", which
+    is the failure class this whole plugin argues against.
+
+    Fails open: with no plugin data dir or no usable session id this returns
+    True every time, which is today's full emission on every occurrence.
+    """
+    data_dir = os.environ.get("CLAUDE_PLUGIN_DATA")
+    if not data_dir or not isinstance(session_id, str):
+        return True
+    safe = "".join(c for c in session_id if c.isalnum() or c in "-_")[:64]
+    safe_key = "".join(c for c in key if c.isalnum() or c in "-_")[:64]
+    if not safe or not safe_key:
+        return True
+    import hashlib
+    import time
+
+    repo = hashlib.sha256(str(project_dir().resolve()).encode("utf-8")).hexdigest()[:16]
+    store = Path(data_dir) / "once"
+    stamp = store / f"{repo}-{safe}-{safe_key}"
+    try:
+        if stamp.is_file():
+            return False
+        store.mkdir(parents=True, exist_ok=True)
+        stamp.touch()
+        cutoff = time.time() - ONCE_TTL_SECONDS
+        for old in store.iterdir():
+            try:
+                if old.stat().st_mtime < cutoff:
+                    old.unlink()
+            except OSError:
+                continue
+    except OSError:
+        return True
+    return True
+
+
 def repo_for(edited_path: str) -> str:
     """The tree that owns `edited_path`, found by walking up to the root marker.
 
