@@ -19,6 +19,11 @@
 #   agents    Who to ask. More than one means ask them in PARALLEL, one message,
 #             background. Never serially.
 #   paths     Glob patterns, matched against repo-relative POSIX paths.
+#   exclude   Optional globs subtracted after `paths` match. Use it where a
+#             broad glob overlaps a narrower rule that owns the path, so one
+#             edit does not summon two seats and pay two spawns. A carve-out
+#             that leaves a path covered by no rule at all is a hole, not a
+#             boundary; /roll-call:doctor checks for that.
 #   question  The question to actually ask. Routing that names an agent but not a
 #             question produces a survey; ask for a recommendation stated as the
 #             thing to build.
@@ -63,6 +68,14 @@ fresh_hours = 24
 # More than this many agents owed at once means the change is too broad to route.
 # Narrow the change, or run a full design round deliberately.
 max_parallel = 4
+# "compact" renders a rule's full why/question once per session; every repeat
+# firing still blocks, in one line that names the owed agents and rule ids and
+# points back at this file. "full" restores the complete block on every firing.
+repeat_style = "compact"
+# The router appends one line per firing to `.claude/.route-stats`, hook-read
+# only and pruned to a 30-day window, so /roll-call:doctor can report rules
+# that fire constantly and never get consulted. Set false to write nothing.
+stats = true
 
 # ------------------------------------------------------------ data and shape --
 
@@ -141,6 +154,10 @@ why = "A traced-provenance corpus is a differentiated asset and it stops being o
 id = "frontend"
 agents = ["frontend-architect"]
 paths = ["src/PROJECT_SLUG/web/**", "**/*.tsx", "**/*.jsx", "**/*.ts", "**/*.css"]
+# The bare *.ts glob also matches the backend contract files under api/ and
+# plugins/, which public-interface already routes to their owning seat. Without
+# this carve-out one edit summons both seats and pays both spawns.
+exclude = ["src/PROJECT_SLUG/api/**", "src/PROJECT_SLUG/plugins/**"]
 level = "required"
 question = """
 Component structure, state ownership, and what this does at realistic data

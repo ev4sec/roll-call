@@ -39,6 +39,14 @@ important the surface is. Narrow the paths until it does not.
 files where the decision lives, not the directory they sit in. `src/**/*.py` is
 almost always wrong. `src/*/store/models.py` is usually right.
 
+**`exclude`** subtracts globs after `paths` match. Reach for it when two rules'
+globs both match one path: both seats get summoned in one block and you pay
+both spawns, roughly five thousand tokens of fixed overhead each, for a file
+whose owning lane is not in question. Give the boundary to the owning lane with
+an exclude on the broader rule, and test the overlap with a real path before
+promoting either rule to required. An exclude that leaves a real file covered
+by no rule at all is a hole, not a boundary; `/roll-call:doctor` reports those.
+
 **`agents`** names seats that must exist in `.claude/agents/`. More than one
 means ask them **in parallel**, in a single message. Never serially. Keep it to
 two at most; four seats on one change means the change is too broad to route and

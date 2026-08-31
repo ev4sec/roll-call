@@ -40,6 +40,10 @@ This is the most valuable section. For each rule in `.claude/routing.toml`:
 - **Overbroad rule.** Does it match a very large share of the tree? Say so.
   A rule that fires on everything gets muted, and it takes the credible rules
   with it.
+- **Orphaned carve-out.** For each rule with an `exclude`, does every excluded
+  path that actually exists in the tree still match some other rule's paths?
+  An exclude that leaves a real file covered by nothing is a hole wearing a
+  boundary's name.
 - **Posture.** How many rules are `advised` versus `required`? If everything is
   still `advised` long after init, the engine is advising and enforcing nothing.
   Mention it once, without nagging.
