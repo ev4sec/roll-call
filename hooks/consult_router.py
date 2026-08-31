@@ -35,6 +35,7 @@ edit in the repository over a syntax error is the worse failure.
 from __future__ import annotations
 
 import fnmatch
+import hashlib
 import json
 import os
 import sys
@@ -52,6 +53,21 @@ except ModuleNotFoundError:  # pragma: no cover - 3.10 and older
 
 ROUTING = ".claude/routing.toml"
 LEDGER = ".claude/.consults"
+
+#: Where per-session "full block already shown" stamps live, under the
+#: harness-provided plugin data directory. Absent that directory or a
+#: session_id, the router degrades to rendering the full block every time,
+#: which is exactly today's behavior.
+STATE_DIRNAME = "router-seen"
+STATE_TTL_SECONDS = 48 * 3600
+
+#: Fire-rate ledger, hook-written and hook-read only. One line per owed rule
+#: per firing. `/roll-call:doctor` aggregates it through scripts/route_stats.py
+#: to find rules that fire constantly and never get consulted, which is the
+#: measured version of the "watch it fire for a week" rule the routing-rule
+#: skill already states. Never read by the model, so its cost is zero tokens.
+STATS = ".claude/.route-stats"
+STATS_WINDOW_SECONDS = 30 * 24 * 3600
 
 #: Edits that cannot change behavior and should never summon anyone.
 IGNORED_SUFFIXES = (".md", ".txt", ".lock")
@@ -118,6 +134,10 @@ def owed(rel: str, project: Path) -> tuple[list[dict[str, object]], list[dict[st
     for rule in rules:
         if not _matches(rel, list(rule.get("paths", []))):
             continue
+        # A path claimed by a broad glob but owned by a narrower rule can be
+        # carved out explicitly, so one edit does not summon two seats.
+        if _matches(rel, list(rule.get("exclude", []))):
+            continue
         missing = [a for a in rule.get("agents", []) if a not in fresh]
         if not missing:
             continue
@@ -165,6 +185,104 @@ def render(rel: str, required: list[dict[str, object]], settings: dict[str, obje
     return "\n".join(lines)
 
 
+def render_short(rel: str, repeats: list[dict[str, object]]) -> str:
+    """One line per repeat firing. The full block already rendered this session.
+
+    Still names the owed agents and the rule ids, and points at the file where
+    the full text lives, so a session whose context was compacted after the
+    full block can recover it with one cheap read instead of guessing.
+    """
+    names = sorted({str(a) for rule in repeats for a in rule["missing"]})  # type: ignore[union-attr]
+    ids = ", ".join(str(rule.get("id", "?")) for rule in repeats)
+    return (
+        f"CONSULT OWED for {rel}: {', '.join(names)} (rules: {ids}; full text "
+        f"in .claude/routing.toml, shown earlier this session). Consult now, "
+        f"or declare the skip explicitly. Do not silently skip it."
+    )
+
+
+def _state_file(project: Path, session_id: object) -> Path | None:
+    """Stamp file for this (repository, session) pair, or None to fail open.
+
+    Keyed the way session_start's offer stamp already is: a hash of the repo
+    path, so the store is not a readable list of the machine's repositories.
+    Rule ids live inside the file as JSON, never as filenames, because they are
+    user-authored TOML strings.
+    """
+    data_dir = os.environ.get("CLAUDE_PLUGIN_DATA")
+    if not data_dir or not isinstance(session_id, str):
+        return None
+    safe_session = "".join(c for c in session_id if c.isalnum() or c in "-_")[:64]
+    if not safe_session:
+        return None
+    repo_hash = hashlib.sha256(str(project.resolve()).encode("utf-8")).hexdigest()[:16]
+    return Path(data_dir) / STATE_DIRNAME / f"{repo_hash}-{safe_session}.json"
+
+
+def _seen_rules(state: Path | None) -> set[str]:
+    if state is None or not state.is_file():
+        return set()
+    try:
+        loaded = json.loads(state.read_text(encoding="utf-8"))
+        return {str(item) for item in loaded} if isinstance(loaded, list) else set()
+    except (OSError, ValueError):
+        return set()
+
+
+def _record_rules(state: Path | None, rule_ids: list[str]) -> None:
+    if state is None:
+        return
+    try:
+        state.parent.mkdir(parents=True, exist_ok=True)
+        merged = _seen_rules(state) | set(rule_ids)
+        state.write_text(json.dumps(sorted(merged)), encoding="utf-8")
+        _prune_stale(state.parent)
+    except OSError:
+        pass
+
+
+def _prune_stale(directory: Path) -> None:
+    """Old sessions' stamps are inert; drop them so the store stays small."""
+    cutoff = time.time() - STATE_TTL_SECONDS
+    try:
+        for stamp in directory.iterdir():
+            try:
+                if stamp.stat().st_mtime < cutoff:
+                    stamp.unlink()
+            except OSError:
+                continue
+    except OSError:
+        pass
+
+
+def _append_stats(project: Path, entries: list[tuple[str, str]]) -> None:
+    """Record firings, pruning past the window in the same write.
+
+    Rewrite-not-append is deliberate: the window keeps the file small, and a
+    ledger nothing prunes eventually gets noticed and deleted by hand, taking
+    its history with it.
+    """
+    if not entries:
+        return
+    try:
+        path = project / STATS
+        now = time.time()
+        cutoff = now - STATS_WINDOW_SECONDS
+        lines: list[str] = []
+        if path.is_file():
+            for line in path.read_text(encoding="utf-8").splitlines():
+                _, _, stamp = line.rpartition("\t")
+                try:
+                    if float(stamp) >= cutoff:
+                        lines.append(line)
+                except ValueError:
+                    continue
+        lines.extend(f"{rid}\t{kind}\t{now:.0f}" for rid, kind in entries)
+        path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    except OSError:
+        pass
+
+
 def main() -> int:
     try:
         payload = json.load(sys.stdin)
@@ -195,13 +313,50 @@ def main() -> int:
         print(f"consult_router: routing table unreadable ({exc})", file=sys.stderr)
         return 0
 
+    compact = str(settings.get("repeat_style", "compact")) == "compact"
+    if settings.get("stats", True):
+        _append_stats(
+            project,
+            [(str(r.get("id", "?")), "R") for r in required]
+            + [(str(r.get("id", "?")), "A") for r in advised],
+        )
+
     if required:
-        print(render(rel, required, settings), file=sys.stderr)
+        # Repeat compression: the full why/question prose renders once per rule
+        # per session; later firings still exit 2 with a one-line demand. Any
+        # missing piece (no session_id, no plugin data dir, unreadable state,
+        # repeat_style = "full") fails toward the full block: verbose, never
+        # silent.
+        state = None
+        if compact:
+            state = _state_file(project, payload.get("session_id"))
+        seen = _seen_rules(state)
+        repeats = [r for r in required if str(r.get("id", "?")) in seen]
+        first_time = [r for r in required if str(r.get("id", "?")) not in seen]
+
+        if state is not None and not first_time:
+            print(render_short(rel, repeats), file=sys.stderr)
+        elif state is not None and repeats:
+            print(
+                render(rel, first_time, settings) + "\n" + render_short(rel, repeats),
+                file=sys.stderr,
+            )
+        else:
+            print(render(rel, required, settings), file=sys.stderr)
+        _record_rules(state, [str(r.get("id", "?")) for r in required])
         return 2
 
     if advised:
-        names = sorted({str(a) for r in advised for a in r["missing"]})  # type: ignore[union-attr]
-        print(f"consult advised for {rel}: {', '.join(names)}", file=sys.stderr)
+        # routing.toml has documented advised as "mentioned once" since 0.1.0;
+        # the code had no once-flag and re-printed on every matching edit. The
+        # same session stamp that compresses required repeats now makes the
+        # documentation true, keyed separately so the two cannot collide.
+        state = _state_file(project, payload.get("session_id")) if compact else None
+        keys = [f"advised:{r.get('id', '?')}" for r in advised]
+        if state is None or any(k not in _seen_rules(state) for k in keys):
+            names = sorted({str(a) for r in advised for a in r["missing"]})  # type: ignore[union-attr]
+            print(f"consult advised for {rel}: {', '.join(names)}", file=sys.stderr)
+            _record_rules(state, keys)
     return 0
 
 
