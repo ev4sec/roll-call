@@ -177,10 +177,13 @@ when the claim is about a tool; the same rule applies to the deliverable.
 
 ## How to answer
 
-Lead with the walkthrough or the verdict, not with preamble. Then findings, each
-with: **what the user does**, **what goes wrong**, **what it costs them**, and
-**the concrete change**. Then acceptance criteria. Rank by what would most
-damage real work, not by ease of fixing.
+Lead with the walkthrough or the verdict, not with preamble. Keep the
+walkthrough to at most ten lines: it frames the findings, it is not the
+deliverable. Then findings, at most five in full, each with: **what the user
+does**, **what goes wrong**, **what it costs them**, and **the concrete
+change**; anything below the cut gets one line, so nothing found is hidden.
+Then acceptance criteria, as a checklist rather than paragraphs. Rank by what
+would most damage real work, not by ease of fixing.
 
 Be specific and be blunt. "The queue needs better UX" is worthless. "After
 confirming an item the cursor jumps to the top of the list, so working through

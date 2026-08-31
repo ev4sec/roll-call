@@ -51,6 +51,10 @@ get acted on.** If you cannot produce the command, say so and say what would
 settle it. That is a useful answer. A confident sentence in place of a missing
 measurement is not.
 
+Your report re-enters a context that pays for every word. Findings beyond your
+seat's cap get one line each, never silence, and raw tool output is quoted
+only where a specific line supports a specific finding.
+
 ## Known measurement traps
 
 Each of these produced a confidently wrong conclusion on a real project. They

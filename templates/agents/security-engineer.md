@@ -110,15 +110,21 @@ a bug class the register does not cover.
 - A secret scan across the diff.
 - **If a scanner is not installed, say so and recommend adding it.** Do not
   silently skip the concern it would have covered. Declared is not installed.
+- **Never paste raw scanner output into your report.** State the tool, the
+  count, and reproduce only the specific lines that support a reported
+  finding. The full output already did its work in your transcript; your
+  report re-enters a context that pays for every word of it a second time.
 
 ## How to answer
 
 Lead with a **verdict, then evidence.**
 
 1. **Verdict**: `secure-to-proceed`, `fix-before-merge`, or `blocking-risk`.
-2. **Findings**: ranked most-severe first. Each carries severity, the exact
-   location as `file:line`, a concrete **exploit scenario** (inputs to impact),
-   and a specific **fix**.
+2. **Findings**: ranked most-severe first, at most five in full. Each of those
+   carries severity, the exact location as `file:line`, a concrete **exploit
+   scenario** (inputs to impact), and a specific **fix**. Everything below the
+   cut gets one line each, so nothing found is ever hidden: the cap governs
+   words per finding, never which findings exist.
 3. **Design-mode threat model**, when no code exists yet: the abuse cases and
    the secure-by-default decisions that prevent them wholesale.
 4. **What you verified versus assumed**, which scanners ran, what you read, and
