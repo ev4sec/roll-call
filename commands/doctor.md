@@ -83,6 +83,20 @@ offer to overwrite anything.** Describe the difference and let the user decide,
 because the local copy is the one they tuned and that is the whole reason it is
 theirs.
 
+## 7. What the routing is costing
+
+Run `scripts/route_stats.py` from `${CLAUDE_PLUGIN_ROOT}` with the interpreter
+found in section 1, passing `--target` as this repository's root, and report
+its lines verbatim. It aggregates the hook-written fire-rate ledger against
+the consult ledger and the routing table, and it prints only what crosses a
+threshold: a required rule being fired at and ignored, or a document growing
+in one of the expensive read paths. A healthy table gets one line.
+
+**Do not Read `.claude/.route-stats` or `.claude/.consults` yourself.** They
+are machine files, and the script exists precisely so their contents never
+need to enter anyone's context. A rule being ignored is the script's finding
+to make, not an impression to form by scrolling a ledger.
+
 ## Output
 
 Group by severity:
