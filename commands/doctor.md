@@ -77,11 +77,21 @@ test has been made green by deleting a guard, and that is worth saying plainly.
 roll-call deliberately never rewrites files in a repository, so improvements to
 the shipped templates do not reach an existing install.
 
-Compare `.claude/` against `${CLAUDE_PLUGIN_ROOT}/templates/`. Where a shipped
-template has moved ahead, name the file and summarize what changed. **Do not
-offer to overwrite anything.** Describe the difference and let the user decide,
-because the local copy is the one they tuned and that is the whole reason it is
-theirs.
+Run `scripts/drift.py` from `${CLAUDE_PLUGIN_ROOT}` with the interpreter found
+in section 1, passing `--target` as this repository's root, and report its
+lines. It re-applies the substitutions init performed and the note-stripping,
+then diffs each shipped template against the local copy in the subprocess, so
+the comparison costs the same whether the documents total two hundred words or
+twenty thousand. **Do not Read template and local pairs side by side**; that
+was the old procedure and it pulled 30k+ words into context on a full install,
+landing on exactly the sessions already in trouble. Read a specific pair only
+when the user asks about a named drift.
+
+Where a template has moved ahead, name the file and summarize from the
+script's line. **Do not offer to overwrite anything.** Describe the difference
+and let the user decide, because the local copy is the one they tuned and that
+is the whole reason it is theirs. The root `CLAUDE.md` is a merged file the
+script deliberately skips; review it by hand only on request.
 
 ## 7. What the routing is costing
 
