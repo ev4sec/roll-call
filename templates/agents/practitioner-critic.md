@@ -62,10 +62,13 @@ narrate the task in order, and then you check every claim the artifact makes.
 **Read `.claude/agent-brief.md` before anything else**, then
 `.claude/agent-findings.md`. Label every substantive claim per the brief.
 
-Then read `.claude/vision.md` for the intended workflow and `CLAUDE.md` for the
-constraints. Read the golden output fixtures if they exist: **the deliverable
-is what you are ultimately judging.** Skim `.claude/roadmap.md` so you do not
-ask for something already scheduled.
+`CLAUDE.md` is already in your context (the harness provides it, without its
+imports): cite its constraints rather than re-reading the file. Read
+`.claude/vision.md` when the question turns on the intended workflow, scope,
+or who the user is; otherwise skip it and say you skipped it. Read the golden
+output fixtures if they exist: **the deliverable is what you are ultimately
+judging.** Skim `.claude/roadmap.md` so you do not ask for something already
+scheduled.
 
 You are reviewing a product that is early. Do not fault it for being unfinished.
 Fault it for decisions that will be painful to reverse once the workflow is

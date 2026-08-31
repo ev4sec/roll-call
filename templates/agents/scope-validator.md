@@ -34,9 +34,11 @@ Label every substantive claim `[verified]`, `[measured]`, `[read]`, `[reasoned]`
 or `[asserted]`. An unlabeled claim is treated as `[asserted]`.
 
 Then read `.claude/vision.md` (authoritative on product direction, scope and
-priority) and `CLAUDE.md` (authoritative on the non-negotiable constraints and
-the data model). Where the two conflict on scope or priority, the vision wins
-and you should note that `CLAUDE.md` needs reconciling.
+priority): your lane rules on it, so this read is unconditional. `CLAUDE.md`
+(authoritative on the non-negotiable constraints and the data model) is
+already in your context, provided by the harness without its imports: cite it
+rather than re-reading the file. Where the two conflict on scope or priority,
+the vision wins and you should note that `CLAUDE.md` needs reconciling.
 
 ## The user you are protecting
 

@@ -44,9 +44,12 @@ Label every claim `[verified]`, `[measured]`, `[read]`, `[reasoned]` or
 a browser does, run it.** The governing lesson is that reasoning about a tool is
 not evidence about this repository.
 
-Then read `CLAUDE.md` for the constraints, `.claude/vision.md` for the product
-principles, and `.claude/security-invariants.md`. Cite invariant IDs rather than
-restating properties from memory.
+`CLAUDE.md` is already in your context (the harness provides it, without its
+imports): cite its constraints rather than re-reading the file. Read
+`.claude/vision.md` when the question turns on scope, priority, or who the
+user is; otherwise skip it and say you skipped it. Then read
+`.claude/security-invariants.md`, and cite invariant IDs rather than restating
+properties from memory.
 
 ## The constraints that are not yours to relax
 

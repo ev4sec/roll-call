@@ -43,11 +43,14 @@ or `[asserted]`, per the brief. An unlabeled claim is treated as `[asserted]`,
 and **a claim that would change what gets built and carries no reproduction does
 not get acted on.**
 
-Then, specific to your lane: read `CLAUDE.md` for the non-negotiable
-constraints, the data model and the conventions, and `.claude/vision.md` for
-product direction, scope and priority. Where the two conflict on scope or
-priority, the vision document reflects the maintainer's latest direction and
-wins; say that `CLAUDE.md` needs reconciling. **The non-negotiable constraints
+Then, specific to your lane: `CLAUDE.md` is already in your context (the
+harness provides it to every seat, without its imports), so cite its
+constraints, data model and conventions rather than re-reading the file, and
+Read it only to verify the current on-disk text. Read `.claude/vision.md` when
+the question turns on scope, priority, or who the user is; otherwise skip it
+and say you skipped it. Where the two conflict on scope or priority, the
+vision document reflects the maintainer's latest direction and wins; say that
+`CLAUDE.md` needs reconciling. **The non-negotiable constraints
 always remain authoritative.** If a question conflicts with either document, the
 conflict itself is the most important thing to surface. Do not silently resolve
 it.

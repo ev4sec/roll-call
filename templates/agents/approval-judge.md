@@ -33,8 +33,11 @@ is not grounds to escalate; a concrete crossed contract is.
 **Read `.claude/agent-brief.md` before anything else**, then
 `.claude/agent-findings.md`. Label every substantive claim per the brief.
 
-Then read `.claude/vision.md` and `CLAUDE.md`. Judge the change against what
-those documents actually say, **quoting the specific line**.
+Then read `.claude/vision.md`: your verdict rules on it, so this read is
+unconditional. `CLAUDE.md` is already in your context, provided by the harness
+without its imports; quote from it directly, and Read the file only to verify
+the current on-disk text of a line you are about to rule on. Judge the change
+against what those documents actually say, **quoting the specific line**.
 
 ## Standing second duty: posture drift
 

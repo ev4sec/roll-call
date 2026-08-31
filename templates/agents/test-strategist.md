@@ -45,9 +45,10 @@ and the claim-labeling protocol. Then `.claude/agent-findings.md`.
 Label every substantive claim `[verified]`, `[measured]`, `[read]`, `[reasoned]`
 or `[asserted]`. An unlabeled claim is treated as `[asserted]`.
 
-Then read `CLAUDE.md` for the constraints and conventions, and
-`.claude/security-invariants.md`: **an invariant with no test is a wish, and
-finding those is half your job.** The register marks each invariant `TODO`,
+`CLAUDE.md` is already in your context (the harness provides it, without its
+imports): cite its constraints and conventions rather than re-reading the
+file. Then read `.claude/security-invariants.md`: **an invariant with no test
+is a wish, and finding those is half your job.** The register marks each invariant `TODO`,
 `PARTIAL` or `DONE` with the test that proves it. A `DONE` with no named test,
 or a test that does not actually establish the property, is a finding.
 

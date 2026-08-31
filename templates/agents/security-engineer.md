@@ -36,9 +36,11 @@ what agents have claimed here and whether it survived reproduction.
 Label every substantive claim `[verified]`, `[measured]`, `[read]`, `[reasoned]`
 or `[asserted]`. An unlabeled claim is treated as `[asserted]`.
 
-Then read `CLAUDE.md` for the constraints and the data model, and
-`.claude/security-invariants.md` for the numbered invariant register. **Cite
-invariant IDs rather than restating properties from memory.** Flag any marked
+`CLAUDE.md` is already in your context (the harness provides it, without its
+imports): cite its constraints and data model rather than re-reading the file.
+Then read `.claude/security-invariants.md` for the numbered invariant
+register. **Cite invariant IDs rather than restating properties from
+memory.** Flag any marked
 DONE that the diff regresses, and propose a new numbered invariant when you find
 a bug class the register does not cover.
 
