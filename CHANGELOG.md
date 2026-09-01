@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.2.0 (2026-08-31)
 
 Token-burn controls: the engine now polices its own context cost the way it
 polices everything else, with the enforcement guarantee untouched. Every
@@ -41,6 +41,13 @@ Held deliberately, pending evidence from the fire-rate ledger: consult
 waivers (the one control that could silence a required rule) and rotation of
 the findings ledger. The operating-procedure core/annex split is parked for a
 later release.
+
+Known issue, carried from 0.1.0 and now reported instead of silent: the
+router drops .md/.txt/.lock edits before rule matching, so shipped rules
+aimed only at such paths (the board, roadmap, vision, and constitution
+gates) cannot fire. Doctor's section 7 names them; the fix, honoring a rule
+that explicitly targets an ignored path, is planned for the next release so
+it can go through its own review rather than shipping unreviewed.
 
 ## 0.1.0 (2026-08-24)
 

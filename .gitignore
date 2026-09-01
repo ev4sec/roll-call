@@ -8,3 +8,6 @@ venv/
 # Working notes and the source material the template was derived from.
 # Not shipped: it is scaffolding for building the plugin, not part of it.
 _working/
+
+# This repo runs the plugin on itself; its session ledgers must never ship.
+.claude/

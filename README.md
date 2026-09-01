@@ -259,7 +259,7 @@ The plugin carries its own suite and an end-to-end validation harness that
 stands up real repositories and drives the real hooks:
 
 ```
-python -m pytest tests/ -q          # 113 tests
+python -m pytest tests/ -q          # 170 tests
 python scripts/validate.py          # 35 end-to-end checks
 claude plugin validate .            # manifest check
 ```
