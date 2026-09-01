@@ -34,7 +34,11 @@ A report that lists twenty passing checks trains the reader to skim it.
 This is the most valuable section. For each rule in `.claude/routing.toml`:
 
 - **Dead rule.** Do its globs match any file in the repository? A rule matching
-  nothing is a seat nobody will ever be sent to.
+  nothing is a seat nobody will ever be sent to. And can the router actually
+  reach what they match: doc and lockfile edits (.md, .txt, .lock) are dropped
+  before matching unless a rule names the exact file, so a glob over those
+  suffixes matches files and still never fires. Section 7's script checks
+  this mechanically; a rule can be alive here and dead there, and dead wins.
 - **Phantom seat.** Does every agent it names exist in `.claude/agents/`? A rule
   naming a missing agent blocks on a consult that cannot happen.
 - **Overbroad rule.** Does it match a very large share of the tree? Say so.

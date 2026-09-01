@@ -39,6 +39,12 @@ important the surface is. Narrow the paths until it does not.
 files where the decision lives, not the directory they sit in. `src/**/*.py` is
 almost always wrong. `src/*/store/models.py` is usually right.
 
+One gate to know before aiming at documents: the router drops .md, .txt, and
+.lock edits before matching unless a rule names the exact file. So
+`.claude/slice.md` as a literal entry fires, and `**/*.md` matches files in
+every check you run and still never fires: coverage on paper, which
+`/roll-call:doctor` reports. Name doc files exactly or not at all.
+
 **`exclude`** subtracts globs after `paths` match. Reach for it when two rules'
 globs both match one path: both seats get summoned in one block and you pay
 both spawns, roughly five thousand tokens of fixed overhead each, for a file
@@ -97,6 +103,9 @@ fields before touching anything else.
 
 - Every named seat exists in `.claude/agents/`.
 - The globs match at least one real file **right now**. Check, do not assume.
+- No path is a glob over .md, .txt, or .lock; doc and lockfile files are
+  named exactly or left out, because the router only honors literal names
+  for those suffixes.
 - The rule `id` is unique.
 - `question` and `why` are both non-empty and specific to this project.
 - You added the rule rather than broadening an existing one. Widening a working

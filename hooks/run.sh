@@ -56,13 +56,25 @@ fi
 # Without CLAUDE_PLUGIN_DATA it degrades to warning on every invocation, the
 # same direction session_start degrades. Stale stamps age out after two days.
 if [ -n "${CLAUDE_PLUGIN_DATA:-}" ]; then
-    SESSION=$(cat 2>/dev/null | sed -n 's/.*"session_id"[[:space:]]*:[[:space:]]*"\([A-Za-z0-9_-]\{1,64\}\)".*/\1/p' | head -n 1)
+    # Read stdin only when it is a pipe: on a terminal (the file's own
+    # documented manual usage) cat would block forever, and this script must
+    # never hang a tool call.
+    SESSION=""
+    if [ ! -t 0 ]; then
+        SESSION=$(cat 2>/dev/null | sed -n 's/.*"session_id"[[:space:]]*:[[:space:]]*"\([A-Za-z0-9_-]\{1,64\}\)".*/\1/p' | head -n 1)
+    fi
     [ -n "$SESSION" ] || SESSION="day-$(date +%Y%m%d 2>/dev/null || echo unknown)"
-    STAMP="$CLAUDE_PLUGIN_DATA/no-python-warned-$SESSION"
-    [ -f "$STAMP" ] && exit 0
     mkdir -p "$CLAUDE_PLUGIN_DATA" 2>/dev/null
-    find "$CLAUDE_PLUGIN_DATA" -maxdepth 1 -name 'no-python-warned-*' -mmin +2880 -exec rm -f {} + 2>/dev/null
-    : > "$STAMP" 2>/dev/null
+    # The stamp is a directory created with mkdir because mkdir is atomic:
+    # five hooks fire in parallel on one edit, and check-then-touch would let
+    # all five warn at once on the first edit of every session.
+    STAMP="$CLAUDE_PLUGIN_DATA/no-python-warned-$SESSION"
+    if ! mkdir "$STAMP" 2>/dev/null; then
+        exit 0
+    fi
+    # POSIX-portable prune (-mtime, not GNU -mmin): stamps older than the
+    # same two-day TTL the Python session stamps use age out here too.
+    find "$CLAUDE_PLUGIN_DATA" -name 'no-python-warned-*' -mtime +1 -exec rm -rf {} + 2>/dev/null
 fi
 
 printf '%s' '{"systemMessage":"roll-call needs Python 3.11 or newer on PATH and could not find one. Its guards are inactive until that is fixed. Install Python 3.11+, or run /roll-call:doctor for details."}'

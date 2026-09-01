@@ -86,6 +86,11 @@ Every rule needs a real question, not a topic. Routing that names an agent
 without naming the decision produces a survey, and the engine needs a
 recommendation stated as the thing to build.
 
+If a rule aims at a document, name the exact file (`.claude/slice.md`, not
+`**/*.md`): the router drops doc and lockfile edits before matching unless a
+rule names the file literally, so a doc glob is coverage on paper that
+`doctor` will flag.
+
 **Set every rule to `level = "advised"`.** Nothing blocks on a fresh install.
 The user turns on enforcement once the table describes their codebase rather
 than your first guess at it. Say this in the report.

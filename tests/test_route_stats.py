@@ -188,6 +188,43 @@ def test_a_noisy_advised_rule_is_not_an_offender(project: Path) -> None:
     assert "new-tests" not in out
 
 
+def test_enough_answering_consults_forgive_a_busy_rule(project: Path) -> None:
+    """The forgiveness branch, pinned: without this test the suppression
+    clause could be deleted entirely and the suite stayed green, so a
+    regression flagging every busy compliant rule would ship unnoticed."""
+    stamp_firings(project, "data-model", 15)
+    now = time.time()
+    (project / ".claude" / ".consults").write_text(
+        f"systems-architect\t{now + 5:.0f}\nsystems-architect\t{now + 90:.0f}\n",
+        encoding="utf-8",
+    )
+    out = run(project)
+    assert "data-model" not in out, (
+        "two answering consults forgive 20 firings; 15 must not be flagged"
+    )
+
+
+def test_an_id_less_rule_is_still_visible_to_the_ignored_check(
+    project: Path,
+) -> None:
+    """The router logs id-less rules under a paths-derived key; aggregating
+    by id would leave every id-less rule permanently invisible here."""
+    routing = (project / ".claude" / "routing.toml").read_text(encoding="utf-8")
+    routing += """
+[[rule]]
+paths = ["src/alpha/**"]
+agents = ["seat-alpha"]
+level = "required"
+question = "The alpha question."
+why = "Alpha lane."
+"""
+    (project / ".claude" / "routing.toml").write_text(routing, encoding="utf-8")
+    stamp_firings(project, "paths:src/alpha/**", 12)
+    out = run(project)
+    assert "fired 12x" in out, "an ignored id-less rule must still be reported"
+    assert "seat-alpha" in out
+
+
 def test_firings_outside_the_window_do_not_count(project: Path) -> None:
     old = time.time() - 10 * 24 * 3600
     lines = "".join(f"data-model\tR\t{old:.0f}\n" for _ in range(12))

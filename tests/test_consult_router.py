@@ -363,9 +363,9 @@ def test_malformed_stamp_file_falls_back_to_full(project: Path, plugin_data: Pat
 def test_an_exactly_named_md_file_fires_its_rule(
     project: Path, plugin_data: Path
 ) -> None:
-    """The 0.1.0 defect this closes: five shipped rules named doc files that
-    the suffix gate dropped before matching, so the maintainer's-lane gates
-    could never fire while looking present."""
+    """The 0.1.0 defect this closes: shipped rules named doc files that the
+    suffix gate dropped before matching, so the board, roadmap, vision, and
+    constitution gates could never fire while looking present."""
     routing = (project / ".claude" / "routing.toml").read_text(encoding="utf-8")
     routing += """
 [[rule]]
@@ -407,10 +407,56 @@ question = "Is this doc right?"
 def test_unnamed_doc_and_lockfile_churn_stays_silent(
     project: Path, plugin_data: Path
 ) -> None:
-    for rel in ("README.md", "poetry.lock", "docs/notes.txt"):
+    """Non-vacuous: glob rules COVER each churn file, so silence proves the
+    gate, not the absence of a matching rule."""
+    routing = (project / ".claude" / "routing.toml").read_text(encoding="utf-8")
+    routing += """
+[[rule]]
+id = "doc-globs"
+paths = ["**/*.md", "**/*.lock", "**/*.txt"]
+agents = ["doc-owner"]
+level = "required"
+why = "Covers every churn file below, through globs only."
+question = "Is this right?"
+"""
+    (project / ".claude" / "routing.toml").write_text(routing, encoding="utf-8")
+    for rel in ("README.md", "poetry.lock", "docs/notes.txt", "docs/NOTES.MD"):
         result = fire(project, rel, plugin_data=plugin_data)
-        assert result.returncode == 0, f"{rel} summoned someone"
+        assert result.returncode == 0, f"{rel} summoned someone through a glob"
         assert result.stderr.strip() == ""
+
+
+def test_literal_entries_survive_spelling_variants(
+    project: Path, plugin_data: Path
+) -> None:
+    """A backslash or a leading ./ in a literal entry must not silently kill
+    the gate override; that would be the dead-guard failure one spelling
+    away from the feature."""
+    routing = (project / ".claude" / "routing.toml").read_text(encoding="utf-8")
+    routing += """
+[[rule]]
+id = "board"
+paths = ["./.claude/board.md"]
+agents = ["scope-checker"]
+level = "required"
+why = "Scope arrives as a board line."
+question = "Should this move onto the bench now?"
+
+[[rule]]
+id = "notes"
+paths = [".claude\\\\notes.md"]
+agents = ["note-owner"]
+level = "required"
+why = "Notes carry decisions."
+question = "Is this decision recorded right?"
+"""
+    (project / ".claude" / "routing.toml").write_text(routing, encoding="utf-8")
+    board = fire(project, ".claude/board.md", plugin_data=plugin_data)
+    notes = fire(project, ".claude/notes.md", plugin_data=plugin_data)
+    assert board.returncode == 2, "a leading ./ must not kill the literal match"
+    assert "scope-checker" in board.stderr
+    assert notes.returncode == 2, "a backslash must not kill the literal match"
+    assert "note-owner" in notes.stderr
 
 
 def test_an_explicit_md_rule_gets_repeat_compression_too(

@@ -174,6 +174,10 @@ why = "A screen that is pleasant at forty rows and unusable at four thousand is 
 [[rule]]
 id = "scope-moves"
 agents = ["scope-validator"]
+# A roadmap edit deliberately matches this rule AND worth-and-ordering: scope
+# and worth are different questions with different owners, both seats are
+# summoned in one parallel message, and the worth rule's own question text
+# mandates the pairing. This is the one sanctioned double-summon.
 paths = [".claude/slice.md", ".claude/roadmap.md"]
 level = "required"
 question = """

@@ -91,6 +91,18 @@ def _relative(path: str, project: Path) -> str | None:
         return None
 
 
+def _literal(path: str) -> str:
+    """Normalize a literal path entry the way fnmatch effectively treats
+    globs: forward slashes, no leading ./, case folded per platform. Without
+    this, equality is stricter than every other match in the file, and a rule
+    written as ".claude\\slice.md" or "./CLAUDE.md" silently never fires,
+    which is the dead-guard failure this override exists to close."""
+    p = str(path).replace("\\", "/")
+    if p.startswith("./"):
+        p = p[2:]
+    return os.path.normcase(p)
+
+
 def _matches(rel: str, patterns: list[str]) -> bool:
     for pattern in patterns:
         if fnmatch.fnmatch(rel, pattern):
@@ -129,22 +141,33 @@ def _load_rules(project: Path) -> tuple[dict[str, object], list[dict[str, object
     return data.get("settings", {}), data.get("rule", [])
 
 
-def owed(rel: str, project: Path) -> tuple[list[dict[str, object]], list[dict[str, object]]]:
-    """Rules matching this path with no fresh consult: (required, advised)."""
-    settings, rules = _load_rules(project)
-    window = float(settings.get("fresh_hours", 24))
-    fresh = _fresh_consults(project, window)
+def owed(rel: str, project: Path,
+         settings: dict[str, object] | None = None,
+         rules: list[dict[str, object]] | None = None,
+         ) -> tuple[list[dict[str, object]], list[dict[str, object]]]:
+    """Rules matching this path with no fresh consult: (required, advised).
 
-    required: list[dict[str, object]] = []
-    advised: list[dict[str, object]] = []
-    ignored = rel.endswith(IGNORED_SUFFIXES)
+    `settings`/`rules` can be passed by a caller that already parsed the
+    table, so one edit costs one parse. Matching runs before the ledger read:
+    most edits match nothing, and the never-pruned ledger should not be read
+    to conclude nothing.
+    """
+    if settings is None or rules is None:
+        settings, rules = _load_rules(project)
+
+    matched: list[dict[str, object]] = []
+    # Case-folded so the gate agrees with fnmatch's platform folding: an
+    # uppercase .MD must not slip past the gate on one OS and through a glob
+    # on another, or "can never fire" stops being a truth doctor can tell.
+    ignored = rel.lower().endswith(IGNORED_SUFFIXES)
     for rule in rules:
         paths = [str(p) for p in rule.get("paths", [])]
         # The suffix gate: doc and lockfile churn matches nothing, EXCEPT a
-        # rule that names this exact file. Equality, not globbing, is the
-        # override, so "**/*.md" stays silent while ".claude/slice.md" fires.
+        # rule that names this exact file. Normalized equality, not globbing,
+        # is the override: "**/*.md" stays silent while ".claude/slice.md"
+        # fires, and a backslash or leading ./ in the entry does not kill it.
         if ignored:
-            if rel not in paths:
+            if _literal(rel) not in {_literal(p) for p in paths}:
                 continue
         elif not _matches(rel, paths):
             continue
@@ -152,6 +175,20 @@ def owed(rel: str, project: Path) -> tuple[list[dict[str, object]], list[dict[st
         # carved out explicitly, so one edit does not summon two seats.
         if _matches(rel, list(rule.get("exclude", []))):
             continue
+        matched.append(rule)
+
+    if not matched:
+        return [], []
+
+    try:
+        window = float(settings.get("fresh_hours", 24))  # type: ignore[arg-type]
+    except (TypeError, ValueError):
+        window = 24.0
+    fresh = _fresh_consults(project, window)
+
+    required: list[dict[str, object]] = []
+    advised: list[dict[str, object]] = []
+    for rule in matched:
         missing = [a for a in rule.get("agents", []) if a not in fresh]
         if not missing:
             continue
@@ -363,8 +400,8 @@ def main() -> int:
         return 0
 
     try:
-        settings, _ = _load_rules(project)
-        required, advised = owed(rel, project)
+        settings, rules = _load_rules(project)
+        required, advised = owed(rel, project, settings, rules)
     except (OSError, tomllib.TOMLDecodeError) as exc:
         print(f"consult_router: routing table unreadable ({exc})", file=sys.stderr)
         return 0

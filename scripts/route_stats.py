@@ -40,21 +40,41 @@ from pathlib import Path
 WINDOW_DAYS = 7
 NOISY_FIRINGS = 10
 #: One answering consult forgives this many blocking firings before a rule
-#: counts as ignored. A consult ANSWERS a rule only when that rule fired
-#: within fresh_hours before it: the ledger cannot attribute a spawn to a
-#: rule directly, but timing can, and without it one consult of a shared
-#: seat would vouch for every rule naming that seat, including rules it
-#: never saw.
+#: counts as ignored. A consult ANSWERS a rule when that rule fired within
+#: fresh_hours (plus a lag allowance for the consult's own run time) before
+#: it. This is timing, not true attribution: the ledger cannot know which
+#: rule a spawn served, so a shared-seat consult inside the window still
+#: forgives up to this many firings of a rule it never saw. The bound is the
+#: control; the comment does not claim more than the bound.
 FIRINGS_PER_CONSULT = 10
+#: agent_watch stamps a consult when the agent FINISHES, so a long run can
+#: land its ledger line after the freshness window that its firing opened.
+#: The credit window stretches by this much so a compliant slow consult is
+#: not reported as the rule being ignored.
+CONSULT_LAG_SECONDS = 3600
 BRIEF_BUDGET_WORDS = 1200
 FINDINGS_BUDGET_WORDS = 2000
 SEAT_BUDGET_WORDS = 2200
 
 #: Mirrors consult_router.IGNORED_SUFFIXES. The router drops these before
-#: matching unless a rule names the exact file, so a path here is reachable
-#: only when it is a literal name rather than a glob.
+#: matching (case-folded) unless a rule names the exact file, so a path here
+#: is reachable when it is a literal name rather than a glob. "[" is a legal
+#: literal filename character ([slug].md conventions), so only * and ? count
+#: as proof of glob-ness; a bracket glob that matches nothing literally is
+#: the one shape this check knowingly lets through.
 IGNORED_SUFFIXES = (".md", ".txt", ".lock")
-GLOB_CHARS = ("*", "?", "[")
+GLOB_CHARS = ("*", "?")
+
+
+def _rule_key(rule: dict) -> str:
+    """Mirrors consult_router._rule_key: the id, or a paths-derived key for
+    id-less rules. The ledger is written under this key, so aggregating by
+    anything else leaves id-less rules permanently invisible to this report."""
+    rid = rule.get("id")
+    if rid:
+        return str(rid)
+    paths = "|".join(str(p) for p in rule.get("paths", []))
+    return f"paths:{paths}" if paths else "?"
 
 
 def _words(path: Path) -> int:
@@ -95,7 +115,14 @@ def report(project: Path, window_days: float) -> list[str]:
 
     cutoff = time.time() - window_days * 24 * 3600
 
-    fresh_secs = float(routing.get("settings", {}).get("fresh_hours", 24)) * 3600
+    settings = routing.get("settings", {})
+    try:
+        fresh_secs = float(settings.get("fresh_hours", 24)) * 3600
+    except (AttributeError, TypeError, ValueError):
+        # A malformed settings table must degrade, not crash: this module's
+        # contract is exit 0 always, and doctor relays whatever prints.
+        fresh_secs = 24.0 * 3600
+    credit_secs = fresh_secs + CONSULT_LAG_SECONDS
 
     # Only blocking firings count toward the ignored-rule check: a rule may
     # have accumulated advisory-era "A" lines before being promoted, and
@@ -113,15 +140,16 @@ def report(project: Path, window_days: float) -> list[str]:
 
     lines: list[str] = []
     for rule in routing.get("rule", []):
-        rid = str(rule.get("id", "?"))
-        times = r_times.get(rid, [])
+        key = _rule_key(rule)
+        rid = str(rule.get("id", key))
+        times = r_times.get(key, [])
         fired = len(times)
         agents = [str(a) for a in rule.get("agents", [])]
         answered = sum(
             1
             for agent in agents
             for t in consults.get(agent, [])
-            if any(t - fresh_secs <= ft <= t for ft in times)
+            if any(t - credit_secs <= ft <= t for ft in times)
         )
         if (rule.get("level") == "required" and fired >= NOISY_FIRINGS
                 and answered * FIRINGS_PER_CONSULT < fired):
@@ -136,7 +164,8 @@ def report(project: Path, window_days: float) -> list[str]:
         paths = [str(p) for p in rule.get("paths", [])]
         unreachable = [
             p for p in paths
-            if p.endswith(IGNORED_SUFFIXES) and any(c in p for c in GLOB_CHARS)
+            if p.lower().endswith(IGNORED_SUFFIXES)
+            and any(c in p for c in GLOB_CHARS)
         ]
         if paths and len(unreachable) == len(paths):
             lines.append(
