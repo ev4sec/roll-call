@@ -78,12 +78,73 @@ def test_an_ignored_required_rule_is_reported(project: Path) -> None:
 
 def test_a_consulted_rule_is_not_an_offender(project: Path) -> None:
     """Firing often is fine when the consults actually happen."""
-    stamp_firings(project, "data-model", 12)
+    stamp_firings(project, "data-model", 8)
     (project / ".claude" / ".consults").write_text(
         f"systems-architect\t{time.time():.0f}\n", encoding="utf-8"
     )
     out = run(project)
     assert "data-model" not in out
+
+
+def test_one_shared_consult_cannot_hide_a_heavily_ignored_rule(project: Path) -> None:
+    """Consult credit is per agent name (the ledger cannot attribute a spawn
+    to a rule), so a single consult of a shared seat must not zero the report
+    for a rule being fired at and skipped dozens of times."""
+    stamp_firings(project, "data-model", 25)
+    (project / ".claude" / ".consults").write_text(
+        f"systems-architect\t{time.time():.0f}\n", encoding="utf-8"
+    )
+    out = run(project)
+    assert "rule data-model: fired 25x" in out
+    assert "1 consult(s)" in out
+
+
+def test_advisory_era_firings_do_not_indict_a_promoted_rule(project: Path) -> None:
+    """A rule promoted to required yesterday carries a week of advisory 'A'
+    lines; counting them would tell the user to demote the rule they just
+    deliberately promoted."""
+    stamp_firings(project, "data-model", 12, kind="A")
+    out = run(project)
+    assert "data-model" not in out
+
+
+def test_a_rule_the_router_can_never_fire_is_named(project: Path) -> None:
+    """IGNORED_SUFFIXES drops .md/.txt/.lock edits before matching, so a rule
+    aimed only at such paths is coverage on paper: the exact silent guard
+    failure this engine exists to surface."""
+    routing = (project / ".claude" / "routing.toml").read_text(encoding="utf-8")
+    routing += """
+[[rule]]
+id = "board-moves"
+paths = [".claude/slice.md", ".claude/roadmap.md"]
+agents = ["systems-architect"]
+level = "required"
+question = "Should this move?"
+why = "Scope arrives as a slice-file line."
+"""
+    (project / ".claude" / "routing.toml").write_text(routing, encoding="utf-8")
+    out = run(project)
+    assert "rule board-moves" in out
+    assert "can NEVER fire" in out
+
+
+def test_a_rule_with_one_reachable_path_is_not_flagged_unreachable(
+    project: Path,
+) -> None:
+    """LICENSE has no suffix; a rule mixing it with .md paths can still fire."""
+    routing = (project / ".claude" / "routing.toml").read_text(encoding="utf-8")
+    routing += """
+[[rule]]
+id = "posture"
+paths = ["LICENSE", "README.md"]
+agents = ["systems-architect"]
+level = "required"
+question = "Does posture match?"
+why = "Declaration sites drift."
+"""
+    (project / ".claude" / "routing.toml").write_text(routing, encoding="utf-8")
+    out = run(project)
+    assert "rule posture" not in out
 
 
 def test_a_noisy_advised_rule_is_not_an_offender(project: Path) -> None:

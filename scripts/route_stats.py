@@ -39,9 +39,20 @@ from pathlib import Path
 
 WINDOW_DAYS = 7
 NOISY_FIRINGS = 10
+#: One consult forgives this many blocking firings before a rule counts as
+#: ignored. Consult credit is per agent name, not per rule (the ledger cannot
+#: know which rule a spawn served, and the router's own freshness works the
+#: same way), so a hard consulted==0 test would let one consult of a shared
+#: seat hide every rule naming it; the ratio keeps a heavily fired-at rule
+#: visible anyway.
+FIRINGS_PER_CONSULT = 10
 BRIEF_BUDGET_WORDS = 1200
 FINDINGS_BUDGET_WORDS = 2000
 SEAT_BUDGET_WORDS = 2200
+
+#: Mirrors consult_router.IGNORED_SUFFIXES: edits to these never reach rule
+#: matching, so a rule whose every path ends in one can never fire.
+IGNORED_SUFFIXES = (".md", ".txt", ".lock")
 
 
 def _words(path: Path) -> int:
@@ -82,10 +93,14 @@ def report(project: Path, window_days: float) -> list[str]:
 
     cutoff = time.time() - window_days * 24 * 3600
 
-    firings: dict[str, int] = {}
+    # Only blocking firings count toward the ignored-rule check: a rule may
+    # have accumulated advisory-era "A" lines before being promoted, and
+    # flagging it as ignored the day after a deliberate promotion would tell
+    # the user to undo a decision they just made on the skill's own ladder.
+    blocking: dict[str, int] = {}
     for fields in _timestamped_lines(claude / ".route-stats", cutoff):
-        if len(fields) == 3:
-            firings[fields[0]] = firings.get(fields[0], 0) + 1
+        if len(fields) == 3 and fields[1] == "R":
+            blocking[fields[0]] = blocking.get(fields[0], 0) + 1
 
     consults: dict[str, int] = {}
     for fields in _timestamped_lines(claude / ".consults", cutoff):
@@ -96,15 +111,25 @@ def report(project: Path, window_days: float) -> list[str]:
     lines: list[str] = []
     for rule in routing.get("rule", []):
         rid = str(rule.get("id", "?"))
-        fired = firings.get(rid, 0)
+        fired = blocking.get(rid, 0)
         agents = [str(a) for a in rule.get("agents", [])]
         consulted = sum(consults.get(a, 0) for a in agents)
-        if rule.get("level") == "required" and fired >= NOISY_FIRINGS and consulted == 0:
+        if (rule.get("level") == "required" and fired >= NOISY_FIRINGS
+                and consulted * FIRINGS_PER_CONSULT < fired):
             lines.append(
-                f"rule {rid}: fired {fired}x in {window_days:g}d with zero consults "
-                f"of {', '.join(agents)}. It is being ignored, which is how rules "
-                f"get muted. Narrow its globs, add an exclude, or demote it via "
-                f"/roll-call:write-routing-rule."
+                f"rule {rid}: fired {fired}x in {window_days:g}d with "
+                f"{consulted} consult(s) of {', '.join(agents)}. It is being "
+                f"ignored, which is how rules get muted. Narrow its globs, add "
+                f"an exclude, or demote it via /roll-call:write-routing-rule."
+            )
+
+        paths = [str(p) for p in rule.get("paths", [])]
+        if paths and all(p.endswith(IGNORED_SUFFIXES) for p in paths):
+            lines.append(
+                f"rule {rid}: every path it names ends in a suffix the router "
+                f"ignores before matching ({', '.join(IGNORED_SUFFIXES)}), so "
+                f"it can NEVER fire. It is coverage on paper only. Retarget it "
+                f"at a file the router watches, or remove it."
             )
 
     brief = _words(claude / "agent-brief.md")
