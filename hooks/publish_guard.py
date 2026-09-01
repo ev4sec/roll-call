@@ -285,6 +285,10 @@ def ask(reason: str) -> int:
 
 
 def main() -> int:
+    # The gate belongs only to repositories that were set up for it.
+    if not _engine.initialized():
+        return 0
+
     label = _engine.name()
 
     # Fail CLOSED. For a confirmation gate, unknown state must mean "ask", not

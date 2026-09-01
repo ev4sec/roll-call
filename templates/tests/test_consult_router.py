@@ -88,11 +88,16 @@ router = _load()
 
 @pytest.fixture
 def project(tmp_path: Path) -> Path:
-    """A repo skeleton carrying the real routing table, with an empty ledger."""
+    """A repo skeleton carrying the real routing table, with an empty ledger.
+
+    The engine config comes along too: every hook checks for it first and
+    stays silent in a repository that has not been set up.
+    """
     (tmp_path / ".claude").mkdir()
-    (tmp_path / ".claude" / "routing.toml").write_bytes(
-        (ROOT / ".claude" / "routing.toml").read_bytes()
-    )
+    for name in ("routing.toml", "engine.toml"):
+        source = ROOT / ".claude" / name
+        if source.is_file():
+            (tmp_path / ".claude" / name).write_bytes(source.read_bytes())
     return tmp_path
 
 

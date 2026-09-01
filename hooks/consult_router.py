@@ -53,6 +53,8 @@ except ModuleNotFoundError:  # pragma: no cover - 3.10 and older
 
 ROUTING = ".claude/routing.toml"
 LEDGER = ".claude/.consults"
+CONFIG = ".claude/engine.toml"
+IGNORE = ".claude/.roll-call-ignore"
 
 #: Where per-session "full block already shown" stamps live, under the
 #: harness-provided plugin data directory. Absent that directory or a
@@ -387,6 +389,10 @@ def main() -> int:
         return 0
 
     project = _project()
+    # The plugin is present in every repository the user opens; routing
+    # belongs only in the ones set up for it.
+    if (project / IGNORE).exists() or not (project / CONFIG).is_file():
+        return 0
     rel = _relative(path, project)
     if rel is None:
         return 0

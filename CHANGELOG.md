@@ -1,5 +1,43 @@
 # Changelog
 
+## 0.2.2 (2026-09-01)
+
+Scope and ecosystem fixes from a full review of the shipped plugin.
+
+- Every hook now checks for `.claude/engine.toml` before doing anything, so
+  the guards run only in repositories that have been set up, and an empty
+  `.claude/.roll-call-ignore` opts a repository out of all of them. The
+  plugin installs at user scope, and "nothing happens until init runs" is
+  now what the hooks do rather than what the session-start message says.
+- The dependency audit picks its auditor by ecosystem: Python manifests go
+  to pip-audit, Node manifests to npm audit against the lockfile, and an
+  ecosystem without its auditor is reported as unchecked. `requirements.txt`
+  is read when there is no `pyproject.toml`, and `[dependencies] enabled`
+  switches the audit off.
+- The test hook runs a non-Python suite the way `engine.toml` describes it:
+  with an empty interpreter, a command whose first entry is a program name
+  runs that program.
+- Init writes `.claude/.gitignore` so the consult ledger, the post-agent
+  marker, and the fire-rate ledger stay local to each checkout instead of
+  being committed and shared. The scaffold now writes 30 files.
+- The post-agent commit prompt shows only the source files that changed
+  while an agent ran, using a snapshot taken before the agent starts, and
+  stays silent when the agent changed nothing under the source root. Without
+  a snapshot it shows the whole source diff as before.
+- The security scan reports a fixture password or a debug flag inside a test
+  file as a warning rather than a block; the same line in product code still
+  blocks.
+- `run.sh` probes `python` before `python3` on Windows, where the latter is
+  usually a placeholder, saving a wasted launch on every hook.
+- The router's scope is documented: it sees writes made through the editor
+  tools, not files changed by shell commands or git operations. The README,
+  the routing table, and the operating procedure all say so.
+- Init tells the user that `test_permanent_refusals.py` fails on purpose until
+  its list is filled, so the first red test run is expected.
+- `pytest` run from the plugin root collects only the plugin's own suite; the
+  project-side templates under `templates/tests/` are no longer collected.
+- The manifest names the repository and homepage.
+
 ## 0.2.1 (2026-08-31)
 
 Closes everything 0.2.0 shipped as reported rather than fixed.

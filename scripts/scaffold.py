@@ -58,6 +58,15 @@ DOCUMENTS = (
     "parked-roles.md",
 )
 
+#: Session ledgers the hooks write under `.claude/`. They are machine state
+#: local to one checkout, so init keeps them out of version control.
+LEDGER_IGNORE = ".claude/.gitignore"
+LEDGER_IGNORE_TEXT = """# Written by the roll-call hooks during a session. Local to this checkout.
+.consults
+.agent-ran
+.route-stats
+"""
+
 MARKER_OPEN = "<!-- roll-call:begin -->"
 MARKER_CLOSE = "<!-- roll-call:end -->"
 
@@ -167,6 +176,18 @@ def place(source: Path, target: Path, subs: dict[str, str], report: Report,
     report.written.append(label)
 
 
+def place_text(target: Path, text: str, report: Report, dry_run: bool) -> None:
+    """Write literal content, or skip it because the user already has the file."""
+    label = str(target)
+    if target.exists():
+        report.skipped.append(label)
+        return
+    if not dry_run:
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(text, encoding="utf-8")
+    report.written.append(label)
+
+
 def place_constitution(project: Path, subs: dict[str, str], report: Report,
                        dry_run: bool) -> None:
     """`CLAUDE.md` is the one file that merges rather than skipping.
@@ -219,6 +240,7 @@ def scaffold(project: Path, args: argparse.Namespace) -> Report:
 
     for name in DOCUMENTS:
         place(TEMPLATES / name, claude / name, subs, report, args.dry_run)
+    place_text(project / LEDGER_IGNORE, LEDGER_IGNORE_TEXT, report, args.dry_run)
 
     for agent in sorted((TEMPLATES / "agents").glob("*.md")):
         place(agent, claude / "agents" / agent.name, subs, report, args.dry_run)

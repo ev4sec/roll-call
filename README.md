@@ -157,6 +157,7 @@ your-repo/
   .claude/
     engine.toml                    what your project is, for the hooks
     routing.toml                   who owns which paths
+    .gitignore                     keeps the session ledgers out of git
     operating-procedure.md         how work moves through the roster
     agent-brief.md                 read first by every agent, every time
     agents/                        the nine seats, as editable markdown
@@ -170,7 +171,7 @@ your-repo/
   tests/                           four tests that check the engine itself
 ```
 
-That is 29 files. `TEMPLATE-NOTES.md` is worth a word: the templates ship with
+That is 30 files. `TEMPLATE-NOTES.md` is worth a word: the templates ship with
 guidance embedded in them about how to fill each one in, and init lifts all of
 it into that single file rather than leaving it inline. The reason is cost.
 `agent-brief.md` is opened by all nine seats on every round and each agent
@@ -218,14 +219,22 @@ and it takes the credible alarms down with it.
 
 You should know this before installing anything that hooks into your editor.
 
-- **When a file is written**, the engine checks your routing table, scans the
-  edited file for security patterns, and may run your test suite. If you changed
-  a dependency manifest or packaging config, it may audit dependencies or build
-  your package into a temporary directory.
+- **Only in repositories you set up.** The plugin installs at user scope, so
+  it is present everywhere you open Claude Code, but every hook checks for
+  `.claude/engine.toml` first and stays silent where init has not run. An
+  empty `.claude/.roll-call-ignore` opts a repository out for good.
+- **When a file is written** through the editor tools, the engine checks your
+  routing table, scans the edited file for security patterns, and may run your
+  test suite. If you changed a dependency manifest or packaging config, it may
+  audit dependencies or build your package into a temporary directory. A file
+  changed by a shell command, a script, or a git operation is not a write the
+  editor tools report, so the router does not see it; the routing table
+  governs the edits the session makes, not everything that can touch a file.
 - **Before a shell command runs**, it checks whether that command publishes
   something, and whether an agent has left uncommitted edits in your source that
   you have not looked at.
-- **After an agent runs**, it appends a line to the consult ledger.
+- **Around an agent run**, it notes which source files changed while the agent
+  worked, and appends a line to the consult ledger.
 
 All of it is Python you can read in `hooks/`. Nothing is minified, obfuscated,
 or fetched at runtime. Every hook is launched through `hooks/run.sh`, which
@@ -259,7 +268,7 @@ The plugin carries its own suite and an end-to-end validation harness that
 stands up real repositories and drives the real hooks:
 
 ```
-python -m pytest tests/ -q          # 179 tests
+python -m pytest -q                 # the plugin's own suite
 python scripts/validate.py          # 35 end-to-end checks
 claude plugin validate .            # manifest check
 ```

@@ -88,6 +88,14 @@ def build_command() -> list[str] | None:
         if command[:1] == ["-m"] and len(command) > 1:
             if importlib.util.find_spec(command[1].split(".")[0]) is None:
                 return None
+            return [sys.executable, *command]
+        # A command whose first entry is not a Python option names its own
+        # executable: `["npm", "test"]` runs npm, not Python.
+        if command and not command[0].startswith("-"):
+            executable = shutil.which(command[0])
+            if executable is None:
+                return None
+            return [executable, *command[1:]]
         return [sys.executable, *command]
 
     if shutil.which(interpreter) is None:
@@ -96,6 +104,9 @@ def build_command() -> list[str] | None:
 
 
 def main() -> int:
+    if not _engine.initialized():
+        return 0
+
     try:
         data = json.load(sys.stdin)
     except Exception:

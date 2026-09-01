@@ -19,6 +19,9 @@
 #   agents    Who to ask. More than one means ask them in PARALLEL, one message,
 #             background. Never serially.
 #   paths     Glob patterns, matched against repo-relative POSIX paths.
+#             Matched on writes made through the editor tools; a file changed
+#             by a shell command or a git operation is not a write the router
+#             is told about.
 #             Doc and lockfile churn (.md, .txt, .lock) is dropped before
 #             matching UNLESS a rule names the exact file: ".claude/slice.md"
 #             as a literal entry fires; "**/*.md" never does. Explicit

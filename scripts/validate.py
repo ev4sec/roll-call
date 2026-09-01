@@ -75,7 +75,7 @@ def scenario_python_repo(tmp: Path) -> None:
     out = scaffold(project, source_root="src/scratch")
     check("python repo: scaffold succeeds", out.returncode == 0, out.stderr[:200])
     report = json.loads(out.stdout)
-    check("python repo: 29 files written", len(report["written"]) == 29,
+    check("python repo: 30 files written", len(report["written"]) == 30,
           f"got {len(report['written'])}")
     check("python repo: notes lifted", report["notes_lifted"] > 20)
     check("python repo: judgment slots preserved", report["judgment_slots"] > 50)

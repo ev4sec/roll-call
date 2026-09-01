@@ -67,6 +67,9 @@ def project(tmp_path: Path) -> Path:
     claude = tmp_path / "repo" / ".claude"
     claude.mkdir(parents=True)
     (claude / "routing.toml").write_text(ROUTING, encoding="utf-8")
+    # The router, like every hook, works only in a repository init has set up.
+    (claude / "engine.toml").write_text('[project]\nname = "Repo"\nslug = "repo"\n',
+                                        encoding="utf-8")
     return tmp_path / "repo"
 
 

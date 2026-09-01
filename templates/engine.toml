@@ -22,10 +22,13 @@ source_root = "src/project_slug"
 [tests]
 # Directory the suite lives in. The test hook no-ops if it does not exist.
 dir = "tests"
-# Argv after the interpreter. Replace for a non-Python project, e.g.
-#   command = ["npm", "test", "--silent"]   with interpreter = ""
+# Argv for the suite. With interpreter = "", a command that starts with a
+# Python option such as "-m" runs under the hook's own Python; a command
+# whose first entry is a program name runs that program directly, e.g.
+#   command = ["npm", "test", "--silent"]
 command = ["-m", "pytest", "-q", "tests"]
-# "" means "use sys.executable". Any other value is run as a bare executable.
+# "" as described above. Any other value is run as the executable, with
+# `command` as its arguments.
 interpreter = ""
 # Seconds. The hook reports a timeout as advice, never as a failure.
 timeout = 280
@@ -34,6 +37,10 @@ timeout = 280
 root_marker = "pyproject.toml"
 
 [dependencies]
+# Set false to skip the audit entirely. Python manifests go to pip-audit and
+# Node manifests to npm audit; an ecosystem without its auditor is reported
+# as unchecked rather than clean.
+enabled = true
 # Manifests that trigger the dependency audit.
 manifests = ["pyproject.toml", "package.json", "requirements.txt",
              "package-lock.json", "uv.lock", "poetry.lock"]
@@ -60,8 +67,10 @@ gate_git_push = true
 registry = "PyPI"
 
 [artifact]
-# Set false for anything that is not a distributable package. The artifact
-# hook then no-ops entirely, which is the right answer for an application.
+# Set false for anything that is not a distributable Python package. The
+# artifact hook builds with `python -m build` and inspects the wheel and
+# sdist; it no-ops entirely when disabled, which is the right answer for an
+# application or for another ecosystem.
 enabled = true
 # Files that trigger a build-and-inspect.
 triggers = ["pyproject.toml", "manifest.in", ".gitignore"]

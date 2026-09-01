@@ -112,7 +112,7 @@ def inspect(outdir):
 
 
 def main() -> int:
-    if not _engine.get("artifact", "enabled"):
+    if not _engine.initialized() or not _engine.get("artifact", "enabled"):
         return 0
 
     try:

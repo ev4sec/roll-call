@@ -32,7 +32,16 @@ TARGET="$HOOK_DIR/$HOOK_NAME.py"
 
 VERSION_PROBE='import sys; sys.exit(0 if sys.version_info >= (3, 11) else 1)'
 
-for candidate in python3 python; do
+# On Windows the interpreter is almost always `python`, and a `python3` on
+# PATH is usually a placeholder that exits without running anything, so it
+# is probed second there. Everywhere else `python3` is the reliable name.
+if [ "${OS:-}" = "Windows_NT" ]; then
+    CANDIDATES="python python3"
+else
+    CANDIDATES="python3 python"
+fi
+
+for candidate in $CANDIDATES; do
     if command -v "$candidate" >/dev/null 2>&1; then
         if "$candidate" -c "$VERSION_PROBE" >/dev/null 2>&1; then
             exec "$candidate" "$TARGET" "$@"

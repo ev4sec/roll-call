@@ -55,6 +55,7 @@ _DEFAULTS: dict[str, dict[str, Any]] = {
             "uv.lock",
             "poetry.lock",
         ],
+        "enabled": True,
         "banned": [],
         "banned_reason": "This project's stated constraints refuse this dependency.",
     },
@@ -110,6 +111,24 @@ def have_project_dir() -> bool:
     when this is False rather than guess.
     """
     return bool(os.environ.get("CLAUDE_PROJECT_DIR"))
+
+
+IGNORE_PATH = ".claude/.roll-call-ignore"
+
+
+def initialized() -> bool:
+    """Whether this repository has asked for the engine.
+
+    True once `/roll-call:init` has written `engine.toml`, and false again if
+    the repository opts out with `.claude/.roll-call-ignore`. The plugin is
+    installed at user scope, so it is present in every repository the user
+    opens; the guards belong only in the ones that were set up for them, and
+    every hook checks this before doing anything else.
+    """
+    root = project_dir()
+    if (root / IGNORE_PATH).exists():
+        return False
+    return (root / CONFIG_PATH).is_file()
 
 
 def load() -> dict[str, Any]:
@@ -221,6 +240,106 @@ def session_clear(session_id: object, key: str) -> None:
     repo = hashlib.sha256(str(project_dir().resolve()).encode("utf-8")).hexdigest()[:16]
     try:
         (Path(data_dir) / "once" / f"{repo}-{safe}-{safe_key}").unlink(missing_ok=True)
+    except OSError:
+        pass
+
+
+SNAPSHOT_DIRNAME = "agent-pre"
+SNAPSHOT_TTL_SECONDS = 48 * 3600
+
+
+def _git_stdout(project: Path, args: list[str]) -> str | None:
+    """Stdout of a read-only git command, or None if it did not succeed."""
+    import subprocess
+
+    try:
+        done = subprocess.run(  # noqa: S603
+            ["git", *args],
+            cwd=str(project),
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=15,
+            check=False,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None
+    return done.stdout if done.returncode == 0 else None
+
+
+def source_snapshot(project: Path, source_root: str) -> dict[str, str] | None:
+    """Fingerprints of every file under `source_root` that differs from HEAD.
+
+    Keyed by repo-relative path. Tracked files carry a hash of their diff
+    against HEAD; untracked files carry a hash of their content. Two snapshots
+    taken before and after an agent runs differ exactly on the files that
+    agent touched, which is what the post-agent commit prompt needs to know.
+    Returns None when git cannot answer, so callers fall back to the whole
+    diff rather than to silence.
+    """
+    import hashlib
+
+    diff = _git_stdout(project, ["diff", "HEAD", "--", source_root])
+    if diff is None:
+        return None
+    chunks: dict[str, list[str]] = {}
+    current: str | None = None
+    for line in diff.splitlines(keepends=True):
+        if line.startswith("diff --git "):
+            current = line.rstrip("\r\n").split(" b/", 1)[-1]
+            chunks[current] = []
+        if current is not None:
+            chunks[current].append(line)
+    snapshot = {
+        path: hashlib.sha256("".join(lines).encode("utf-8")).hexdigest()
+        for path, lines in chunks.items()
+    }
+    untracked = _git_stdout(
+        project, ["ls-files", "--others", "--exclude-standard", "--", source_root]
+    )
+    for rel in (untracked or "").splitlines():
+        rel = rel.strip()
+        if not rel:
+            continue
+        try:
+            snapshot[rel] = hashlib.sha256((project / rel).read_bytes()).hexdigest()
+        except OSError:
+            snapshot[rel] = "unreadable"
+    return snapshot
+
+
+def snapshot_file(project: Path, tool_use_id: object) -> Path | None:
+    """Where the pre-agent snapshot for one tool call lives, or None.
+
+    Under the harness-provided plugin data directory, keyed by a hash of the
+    repository path and the tool call id. Without either, there is no
+    snapshot and the commit prompt shows the whole source diff as before.
+    """
+    data_dir = os.environ.get("CLAUDE_PLUGIN_DATA")
+    if not data_dir or not isinstance(tool_use_id, str):
+        return None
+    safe = "".join(c for c in tool_use_id if c.isalnum() or c in "-_")[:64]
+    if not safe:
+        return None
+    import hashlib
+
+    repo = hashlib.sha256(str(project.resolve()).encode("utf-8")).hexdigest()[:16]
+    return Path(data_dir) / SNAPSHOT_DIRNAME / f"{repo}-{safe}.json"
+
+
+def prune_snapshots(directory: Path) -> None:
+    """Snapshots whose agent never reported back age out."""
+    import time
+
+    cutoff = time.time() - SNAPSHOT_TTL_SECONDS
+    try:
+        for stamp in directory.iterdir():
+            try:
+                if stamp.stat().st_mtime < cutoff:
+                    stamp.unlink()
+            except OSError:
+                continue
     except OSError:
         pass
 

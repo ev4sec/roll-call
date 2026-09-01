@@ -308,8 +308,10 @@ the control:
 - **`.claude/routing.toml`**: path globs to owning agents, with the *question
   to ask* and the *cost of skipping* on every rule.
 - **The `consult_router` hook**, which ships with roll-call. It fires on every
-  write, matches the path, and exits 2 with the agent name and the question when
-  a `required` consult has not happened. Fails **open** on a broken table, unlike
+  write made through the editor tools, matches the path, and exits 2 with the
+  agent name and the question when a `required` consult has not happened. A
+  file changed by a shell command or a git operation is not a write it is told
+  about, so a routed change made that way is yours to route by hand. Fails **open** on a broken table, unlike
   `publish_guard`, which fails closed: an unknown state there might publish;
   here it merely cannot advise, and wedging every edit over a syntax error is
   the worse failure.

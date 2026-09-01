@@ -137,6 +137,12 @@ BASELINE = {
 
 COMMENT_PREFIXES = ("#", "//", "*", "/*", "<!--")
 
+#: Checks that report as WARN rather than BLOCK inside a test file. A fixture
+#: password or a debug flag in a test is the ordinary shape of a test, and a
+#: block there would teach the reader to suppress the scan rather than read
+#: it. The same line in product code still blocks.
+TEST_RELAXED = frozenset({"py-secret-literal", "py-debug"})
+
 
 def project_checks(suffix):
     """Project-specific checks for this extension, from `.claude/scan-rules.toml`.
@@ -227,10 +233,12 @@ def table_for(path):
     return BASELINE.get(suffix, []) + project_checks(suffix)
 
 
-def scan_text(text, checks, is_python=False):
+def scan_text(text, checks, is_python=False, relaxed=frozenset()):
     suppress = re.compile(rf"{re.escape(_engine.slug())}:\s*allow\s+([\w-]+)")
     compiled = []
     for cid, sev, rx, msg in checks:
+        if cid in relaxed:
+            sev = WARN
         try:
             compiled.append((cid, sev, re.compile(rx), msg))
         except re.error as exc:
@@ -269,7 +277,7 @@ def run_bandit(path, is_test=False):
 
 
 def main() -> int:
-    if not _engine.get("scan", "enabled"):
+    if not _engine.initialized() or not _engine.get("scan", "enabled"):
         return 0
 
     try:
@@ -299,12 +307,12 @@ def main() -> int:
         return 0
 
     is_py = path.endswith(".py")
-    findings = scan_text(text, checks, is_python=is_py)
+    is_test = "/tests/" in path or os.path.basename(path).startswith("test_")
+    findings = scan_text(
+        text, checks, is_python=is_py, relaxed=TEST_RELAXED if is_test else frozenset(),
+    )
     if is_py:
-        findings += run_bandit(
-            raw,
-            is_test="/tests/" in path or os.path.basename(path).startswith("test_"),
-        )
+        findings += run_bandit(raw, is_test=is_test)
 
     if not findings:
         return 0
