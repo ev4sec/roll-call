@@ -68,6 +68,7 @@ STATE_TTL_SECONDS = 48 * 3600
 #: skill already states. Never read by the model, so its cost is zero tokens.
 STATS = ".claude/.route-stats"
 STATS_WINDOW_SECONDS = 30 * 24 * 3600
+STATS_MAX_BYTES = 256 * 1024
 
 #: Edits that cannot change behavior and should never summon anyone.
 IGNORED_SUFFIXES = (".md", ".txt", ".lock")
@@ -147,7 +148,23 @@ def owed(rel: str, project: Path) -> tuple[list[dict[str, object]], list[dict[st
     return required, advised
 
 
-def render(rel: str, required: list[dict[str, object]], settings: dict[str, object]) -> str:
+def _rule_key(rule: dict[str, object]) -> str:
+    """Stable identity for session state and stats.
+
+    Prefers the declared id. An id-less rule is keyed by its paths, so two
+    unnamed rules can never alias: aliasing would classify one rule's very
+    first firing as another's repeat and swallow its why/question unseen,
+    a degrade toward silence the fail-open discipline forbids.
+    """
+    rid = rule.get("id")
+    if rid:
+        return str(rid)
+    paths = "|".join(str(p) for p in rule.get("paths", []))
+    return f"paths:{paths}" if paths else "?"
+
+
+def render(rel: str, required: list[dict[str, object]], settings: dict[str, object],
+           total_names: list[str] | None = None) -> str:
     names: list[str] = []
     for rule in required:
         names.extend(str(a) for a in rule["missing"])  # type: ignore[union-attr]
@@ -158,12 +175,18 @@ def render(rel: str, required: list[dict[str, object]], settings: dict[str, obje
         "",
     ]
     for rule in required:
-        lines.append(f"[{rule['id']}] -> {', '.join(str(a) for a in rule['missing'])}")
+        lines.append(f"[{rule.get('id', '?')}] -> {', '.join(str(a) for a in rule['missing'])}")
         lines.append(f"  why: {str(rule.get('why', '')).strip()}")
         lines.append(f"  ask: {str(rule.get('question', '')).strip()}")
         lines.append("")
 
+    # The breadth check always counts every agent owed on this edit, not just
+    # the rules rendered in full: compressing a repeat must never compress the
+    # "too broad to route" signal, which exists for exactly the broad,
+    # repeatedly-edited changes that produce repeats.
     limit = int(settings.get("max_parallel", 4))
+    if total_names is not None:
+        unique = sorted(set(total_names))
     if len(unique) > limit:
         lines.append(
             f"{len(unique)} agents owed at once, over the max_parallel of {limit}. "
@@ -185,20 +208,32 @@ def render(rel: str, required: list[dict[str, object]], settings: dict[str, obje
     return "\n".join(lines)
 
 
-def render_short(rel: str, repeats: list[dict[str, object]]) -> str:
+def render_short(rel: str, repeats: list[dict[str, object]],
+                 settings: dict[str, object] | None = None) -> str:
     """One line per repeat firing. The full block already rendered this session.
 
     Still names the owed agents and the rule ids, and points at the file where
     the full text lives, so a session whose context was compacted after the
-    full block can recover it with one cheap read instead of guessing.
+    full block can recover it with one cheap read instead of guessing. When
+    `settings` is passed (the all-repeats branch), the breadth warning rides
+    along too; the mixed branch passes None because render() already carried it.
     """
     names = sorted({str(a) for rule in repeats for a in rule["missing"]})  # type: ignore[union-attr]
     ids = ", ".join(str(rule.get("id", "?")) for rule in repeats)
-    return (
+    line = (
         f"CONSULT OWED for {rel}: {', '.join(names)} (rules: {ids}; full text "
         f"in .claude/routing.toml, shown earlier this session). Consult now, "
         f"or declare the skip explicitly. Do not silently skip it."
     )
+    if settings is not None:
+        limit = int(settings.get("max_parallel", 4))
+        if len(names) > limit:
+            line += (
+                f" {len(names)} agents owed at once, over the max_parallel of "
+                f"{limit}: this change is too broad to route. Narrow it, or run "
+                f"a deliberate full design round and say so."
+            )
+    return line
 
 
 def _state_file(project: Path, session_id: object) -> Path | None:
@@ -256,29 +291,37 @@ def _prune_stale(directory: Path) -> None:
 
 
 def _append_stats(project: Path, entries: list[tuple[str, str]]) -> None:
-    """Record firings, pruning past the window in the same write.
+    """Record firings append-only; prune to the window only past a size cap.
 
-    Rewrite-not-append is deliberate: the window keeps the file small, and a
-    ledger nothing prunes eventually gets noticed and deleted by hand, taking
-    its history with it.
+    Append-only matters because parallel subagent edits spawn overlapping
+    router processes, and a read-modify-write from two of them loses lines:
+    undercounting exactly the busy sessions the ledger exists to measure. The
+    prune is a rare rewrite, size-triggered so two processes almost never
+    attempt it at once. Rule ids are user-authored TOML strings, so the
+    separators are scrubbed before they can corrupt the format.
     """
     if not entries:
         return
     try:
         path = project / STATS
         now = time.time()
-        cutoff = now - STATS_WINDOW_SECONDS
-        lines: list[str] = []
-        if path.is_file():
+        rows = "".join(
+            f"{rid.replace(chr(9), ' ').replace(chr(10), ' ')}\t{kind}\t{now:.0f}\n"
+            for rid, kind in entries
+        )
+        with path.open("a", encoding="utf-8") as fh:
+            fh.write(rows)
+        if path.stat().st_size > STATS_MAX_BYTES:
+            cutoff = now - STATS_WINDOW_SECONDS
+            kept: list[str] = []
             for line in path.read_text(encoding="utf-8").splitlines():
                 _, _, stamp = line.rpartition("\t")
                 try:
                     if float(stamp) >= cutoff:
-                        lines.append(line)
+                        kept.append(line)
                 except ValueError:
                     continue
-        lines.extend(f"{rid}\t{kind}\t{now:.0f}" for rid, kind in entries)
-        path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+            path.write_text("\n".join(kept) + ("\n" if kept else ""), encoding="utf-8")
     except OSError:
         pass
 
@@ -317,8 +360,8 @@ def main() -> int:
     if settings.get("stats", True):
         _append_stats(
             project,
-            [(str(r.get("id", "?")), "R") for r in required]
-            + [(str(r.get("id", "?")), "A") for r in advised],
+            [(_rule_key(r), "R") for r in required]
+            + [(_rule_key(r), "A") for r in advised],
         )
 
     if required:
@@ -331,28 +374,32 @@ def main() -> int:
         if compact:
             state = _state_file(project, payload.get("session_id"))
         seen = _seen_rules(state)
-        repeats = [r for r in required if str(r.get("id", "?")) in seen]
-        first_time = [r for r in required if str(r.get("id", "?")) not in seen]
+        repeats = [r for r in required if _rule_key(r) in seen]
+        first_time = [r for r in required if _rule_key(r) not in seen]
+        owed_names = sorted({str(a) for r in required for a in r["missing"]})  # type: ignore[union-attr]
 
         if state is not None and not first_time:
-            print(render_short(rel, repeats), file=sys.stderr)
+            print(render_short(rel, repeats, settings), file=sys.stderr)
         elif state is not None and repeats:
             print(
-                render(rel, first_time, settings) + "\n" + render_short(rel, repeats),
+                render(rel, first_time, settings, total_names=owed_names)
+                + "\n" + render_short(rel, repeats),
                 file=sys.stderr,
             )
         else:
             print(render(rel, required, settings), file=sys.stderr)
-        _record_rules(state, [str(r.get("id", "?")) for r in required])
+        _record_rules(state, [_rule_key(r) for r in required])
         return 2
 
     if advised:
         # routing.toml has documented advised as "mentioned once" since 0.1.0;
         # the code had no once-flag and re-printed on every matching edit. The
-        # same session stamp that compresses required repeats now makes the
-        # documentation true, keyed separately so the two cannot collide.
-        state = _state_file(project, payload.get("session_id")) if compact else None
-        keys = [f"advised:{r.get('id', '?')}" for r in advised]
+        # session stamp now makes the documentation true, keyed separately so
+        # it cannot collide with the required-tier state. Deliberately NOT
+        # gated on repeat_style: that knob restores the full required block,
+        # and "mentioned once" is documented unconditionally.
+        state = _state_file(project, payload.get("session_id"))
+        keys = [f"advised:{_rule_key(r)}" for r in advised]
         if state is None or any(k not in _seen_rules(state) for k in keys):
             names = sorted({str(a) for r in advised for a in r["missing"]})  # type: ignore[union-attr]
             print(f"consult advised for {rel}: {', '.join(names)}", file=sys.stderr)

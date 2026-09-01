@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import subprocess
 import sys
 import time
@@ -205,6 +206,14 @@ def test_stale_session_stamps_are_pruned(project: Path, plugin_data: Path) -> No
 def test_a_hostile_session_id_cannot_escape_the_store(
     project: Path, plugin_data: Path
 ) -> None:
+    """Non-vacuous by construction: the assertion is on the stamp's own name.
+
+    Scanning the store for escaped files cannot work (a path that escaped is
+    not under the store), so instead assert the one stamp that was written
+    landed inside the store under a fully sanitized name. Deleting the
+    sanitization makes the name carry separators, which either lands the file
+    elsewhere or fails the pattern; both fail this test.
+    """
     result = fire(
         project,
         "src/app/models.py",
@@ -212,9 +221,102 @@ def test_a_hostile_session_id_cannot_escape_the_store(
         plugin_data=plugin_data,
     )
     assert result.returncode == 2
-    written = [p for p in plugin_data.rglob("*") if p.is_file()]
-    for path in written:
-        assert plugin_data in path.parents, f"stamp escaped the store: {path}"
+    store = plugin_data / "router-seen"
+    stamps = list(store.iterdir()) if store.is_dir() else []
+    assert len(stamps) == 1, "the sanitized stamp must land inside the store"
+    name = stamps[0].name
+    assert re.fullmatch(r"[0-9a-f]{16}-[A-Za-z0-9_-]+\.json", name), name
+    assert "etcpasswd" in name, "sanitization should keep the survivable chars"
+
+
+def test_the_breadth_warning_survives_compression(
+    project: Path, plugin_data: Path
+) -> None:
+    """max_parallel counts every agent owed on the edit, in every branch.
+
+    The warning exists for exactly the broad, repeatedly-edited changes that
+    produce repeat firings, so compressing a repeat must never compress it.
+    """
+    routing = (project / ".claude" / "routing.toml").read_text(encoding="utf-8")
+    routing += """
+[[rule]]
+id = "broad"
+paths = ["src/app/models.py"]
+agents = ["a-one", "a-two", "a-three", "a-four", "a-five"]
+level = "required"
+why = "Breadth check."
+question = "Too many seats at once."
+"""
+    (project / ".claude" / "routing.toml").write_text(routing, encoding="utf-8")
+    first = fire(project, "src/app/models.py", plugin_data=plugin_data)
+    repeat = fire(project, "src/app/models.py", plugin_data=plugin_data)
+    for result in (first, repeat):
+        assert result.returncode == 2
+        assert "too broad to route" in result.stderr, (
+            "the breadth warning must fire on full and compressed renders alike"
+        )
+
+
+def test_id_less_rules_do_not_alias_each_other(
+    project: Path, plugin_data: Path
+) -> None:
+    """Two rules without ids must not share one seen-key.
+
+    Aliasing would classify rule B's very first firing as a repeat of rule A
+    and swallow its why/question unseen: a first-firing degrade toward less
+    output, which the fail-open discipline forbids. And a rule without an id
+    must degrade the label to '?', never crash the hook (exit 1 drops
+    enforcement entirely).
+    """
+    routing = """
+[settings]
+fresh_hours = 24
+
+[[rule]]
+paths = ["src/alpha/**"]
+agents = ["seat-alpha"]
+level = "required"
+why = "Alpha lane."
+question = "The alpha question, shown in full on first firing."
+
+[[rule]]
+paths = ["src/beta/**"]
+agents = ["seat-beta"]
+level = "required"
+why = "Beta lane."
+question = "The beta question, shown in full on first firing."
+"""
+    (project / ".claude" / "routing.toml").write_text(routing, encoding="utf-8")
+    first = fire(project, "src/alpha/core.py", plugin_data=plugin_data)
+    second = fire(project, "src/beta/core.py", plugin_data=plugin_data)
+    assert first.returncode == 2 and second.returncode == 2
+    assert "The alpha question" in first.stderr
+    assert "The beta question" in second.stderr, (
+        "an id-less rule's first firing was treated as another rule's repeat"
+    )
+    repeat = fire(project, "src/beta/core.py", plugin_data=plugin_data)
+    assert repeat.returncode == 2
+    assert "The beta question" not in repeat.stderr, "its own repeat still compresses"
+
+
+def test_advised_once_survives_repeat_style_full(
+    project: Path, plugin_data: Path
+) -> None:
+    """The repeat_style knob restores full required blocks; routing.toml
+    documents the advised "mentioned once" unconditionally, so the two must
+    not be coupled."""
+    routing = (project / ".claude" / "routing.toml").read_text(encoding="utf-8")
+    routing = routing.replace(
+        "fresh_hours = 24", 'fresh_hours = 24\nrepeat_style = "full"'
+    ).replace(
+        'level = "required"\nwhy = "Interface contracts are owned."',
+        'level = "advised"\nwhy = "Interface contracts are owned."',
+    )
+    (project / ".claude" / "routing.toml").write_text(routing, encoding="utf-8")
+    first = fire(project, "src/app/api/handler.py", plugin_data=plugin_data)
+    second = fire(project, "src/app/api/handler.py", plugin_data=plugin_data)
+    assert "consult advised" in first.stderr
+    assert second.stderr.strip() == "", "mentioned once means once, whatever the knob"
 
 
 # ------------------------------------------------------------- A3: excludes
@@ -301,14 +403,49 @@ def test_firings_land_in_the_stats_ledger(project: Path, plugin_data: Path) -> N
     assert len(lines) == 2, f"expected two R firings on the ledger, got:\n{stats}"
 
 
-def test_stats_prune_past_the_window_on_write(project: Path, plugin_data: Path) -> None:
+def test_stats_prune_past_the_window_once_the_file_is_large(
+    project: Path, plugin_data: Path
+) -> None:
+    """Appends never rewrite (two parallel routers must not lose each other's
+    lines), so the window prune triggers on size instead of on every write."""
     ancient = time.time() - 40 * 24 * 3600
     stats = project / ".claude" / ".route-stats"
-    stats.write_text(f"old-rule\tR\t{ancient:.0f}\n", encoding="utf-8")  # project: allow py-sql-fstring - stats ledger line, not SQL
+    filler = "".join(
+        f"old-rule\tR\t{ancient:.0f}\n" for _ in range(13000)  # project: allow py-sql-fstring - stats ledger line, not SQL
+    )
+    stats.write_text(filler, encoding="utf-8")
+    assert stats.stat().st_size > 256 * 1024, "fixture must exceed the prune cap"
     fire(project, "src/app/models.py", plugin_data=plugin_data)
     text = stats.read_text(encoding="utf-8")
     assert "old-rule" not in text, "entries past the window must be dropped"
     assert "data-model\tR\t" in text
+
+
+def test_small_stats_files_are_appended_not_rewritten(
+    project: Path, plugin_data: Path
+) -> None:
+    recent = time.time() - 3600
+    stats = project / ".claude" / ".route-stats"
+    stats.write_text(f"other-rule\tR\t{recent:.0f}\n", encoding="utf-8")  # project: allow py-sql-fstring - stats ledger line, not SQL
+    fire(project, "src/app/models.py", plugin_data=plugin_data)
+    text = stats.read_text(encoding="utf-8")
+    assert "other-rule" in text, "an append must preserve other processes' lines"
+    assert "data-model\tR\t" in text
+
+
+def test_hostile_rule_ids_cannot_corrupt_the_stats_format(
+    project: Path, plugin_data: Path
+) -> None:
+    """Rule ids are user-authored TOML; a tab inside one would make its line
+    unparseable and its firings silently uncountable."""
+    routing = (project / ".claude" / "routing.toml").read_text(encoding="utf-8")
+    routing = routing.replace('id = "data-model"', 'id = "data\\tmodel"')
+    (project / ".claude" / "routing.toml").write_text(routing, encoding="utf-8")
+    fire(project, "src/app/models.py", plugin_data=plugin_data)
+    for line in (project / ".claude" / ".route-stats").read_text(
+        encoding="utf-8"
+    ).splitlines():
+        assert len(line.split("\t")) == 3, f"corrupted stats line: {line!r}"
 
 
 def test_stats_off_writes_nothing(project: Path, plugin_data: Path) -> None:
