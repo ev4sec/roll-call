@@ -59,7 +59,8 @@ only where a specific line supports a specific finding.
 ## Measurement traps live in their own file
 
 If your answer will carry a `[measured]` or `[verified]` claim about
-performance, concurrency, builds, packaging, or tooling, read
+performance, concurrency, builds, packaging, tooling, tests and their
+oracles, or what an environment actually has installed, read
 `.claude/measurement-traps.md` first. Every entry there produced a confidently
 wrong conclusion on a real project. **A measurement made without reading it
 does not get the `[measured]` label.**
@@ -100,7 +101,8 @@ If you are shown a correction to your own earlier answer, check it. One
   shipped.
 - `.claude/security-invariants.md`: numbered properties; cite IDs.
 - `.claude/measurement-traps.md`: read before any `[measured]` or `[verified]`
-  claim about performance, concurrency, builds, packaging, or tooling.
+  claim about performance, concurrency, builds, packaging, tooling, tests and
+  their oracles, or what an environment actually has installed.
 - `.claude/roadmap.md`: deferred work and what must stay possible.
 - `.claude/architecture.md`: settled technical decisions.
 - `.claude/agent-findings.md`: the track record above.

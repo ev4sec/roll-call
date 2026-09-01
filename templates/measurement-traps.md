@@ -1,7 +1,8 @@
 # Known measurement traps
 
 Read this before carrying a `[measured]` or `[verified]` claim about
-performance, concurrency, builds, packaging, or tooling. Each entry produced a
+performance, concurrency, builds, packaging, tooling, tests and their
+oracles, or what an environment actually has installed. Each entry produced a
 confidently wrong conclusion on a real project.
 
 <!-- INSTANTIATION: this list starts with the entries that generalize and
