@@ -1,5 +1,30 @@
 # Changelog
 
+## 0.2.1 (2026-08-31)
+
+Closes everything 0.2.0 shipped as reported rather than fixed.
+
+- A rule that names a doc or lockfile exactly now fires. The suffix gate
+  (.md/.txt/.lock, now case-folded) still drops churn before matching, but a
+  literal entry like ".claude/slice.md" is a deliberate act the router
+  honors, with backslashes, a leading ./, and platform case folded before
+  comparing so a spelling variant cannot silently kill a gate. The four
+  0.1.0 rules that could never fire (board, roadmap, vision, constitution)
+  now enforce, and posture's README.md leg joins the LICENSE and NOTICES
+  legs that always fired. Glob patterns over ignored suffixes stay
+  permanently silent, and the spend report flags rules built only from
+  those. Doctor's dead-rule check, the routing-rule skill, and init's
+  seeding guidance all teach the gate now, so a rule that passes their
+  checks is a rule that actually fires.
+- Consult credit in the spend report is scoped to the rule by timing: a
+  consult answers a rule only if that rule fired within fresh_hours
+  beforehand, so one consult of a shared seat no longer vouches for rules it
+  never saw.
+- The no-Python warning is stamped per session instead of per day, matching
+  the Python hooks' once-flags: a fresh session is told its guards are dead,
+  and within a session the message does not repeat. An unparsable payload
+  degrades to per-day; no data dir degrades to every invocation.
+
 ## 0.2.0 (2026-08-31)
 
 Token-burn controls: the engine now polices its own context cost the way it
