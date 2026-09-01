@@ -87,16 +87,29 @@ def test_a_consulted_rule_is_not_an_offender(project: Path) -> None:
 
 
 def test_one_shared_consult_cannot_hide_a_heavily_ignored_rule(project: Path) -> None:
-    """Consult credit is per agent name (the ledger cannot attribute a spawn
-    to a rule), so a single consult of a shared seat must not zero the report
-    for a rule being fired at and skipped dozens of times."""
+    """One consult must not zero the report for a rule fired at and skipped
+    dozens of times, even when the timing makes it a legitimate answer."""
     stamp_firings(project, "data-model", 25)
     (project / ".claude" / ".consults").write_text(
         f"systems-architect\t{time.time():.0f}\n", encoding="utf-8"
     )
     out = run(project)
     assert "rule data-model: fired 25x" in out
-    assert "1 consult(s)" in out
+    assert "1 answering consult(s)" in out
+
+
+def test_a_consult_the_rule_never_saw_gives_it_no_credit(project: Path) -> None:
+    """Credit is rule-scoped by timing: a consult answers a rule only if that
+    rule fired within fresh_hours beforehand. A consult of the shared seat
+    days before this rule ever fired vouches for nothing."""
+    old_consult = time.time() - 3 * 24 * 3600
+    (project / ".claude" / ".consults").write_text(
+        f"systems-architect\t{old_consult:.0f}\n", encoding="utf-8"
+    )
+    stamp_firings(project, "data-model", 12)
+    out = run(project)
+    assert "rule data-model: fired 12x" in out
+    assert "0 answering consult(s)" in out
 
 
 def test_advisory_era_firings_do_not_indict_a_promoted_rule(project: Path) -> None:
@@ -109,9 +122,31 @@ def test_advisory_era_firings_do_not_indict_a_promoted_rule(project: Path) -> No
 
 
 def test_a_rule_the_router_can_never_fire_is_named(project: Path) -> None:
-    """IGNORED_SUFFIXES drops .md/.txt/.lock edits before matching, so a rule
-    aimed only at such paths is coverage on paper: the exact silent guard
-    failure this engine exists to surface."""
+    """A glob over an ignored suffix never matches (only an exact literal
+    name overrides the gate), so a rule built only from such globs is
+    coverage on paper: the exact silent guard failure this engine exists to
+    surface."""
+    routing = (project / ".claude" / "routing.toml").read_text(encoding="utf-8")
+    routing += """
+[[rule]]
+id = "all-docs"
+paths = ["docs/**/*.md", "**/*.txt"]
+agents = ["systems-architect"]
+level = "required"
+question = "Is this doc right?"
+why = "Docs drift."
+"""
+    (project / ".claude" / "routing.toml").write_text(routing, encoding="utf-8")
+    out = run(project)
+    assert "rule all-docs" in out
+    assert "can NEVER fire" in out
+
+
+def test_an_exactly_named_md_path_is_reachable_and_not_flagged(
+    project: Path,
+) -> None:
+    """The router honors literal names of ignored-suffix files, so the five
+    board and constitution gates are live rules, not paper."""
     routing = (project / ".claude" / "routing.toml").read_text(encoding="utf-8")
     routing += """
 [[rule]]
@@ -124,19 +159,18 @@ why = "Scope arrives as a slice-file line."
 """
     (project / ".claude" / "routing.toml").write_text(routing, encoding="utf-8")
     out = run(project)
-    assert "rule board-moves" in out
-    assert "can NEVER fire" in out
+    assert "rule board-moves" not in out
 
 
 def test_a_rule_with_one_reachable_path_is_not_flagged_unreachable(
     project: Path,
 ) -> None:
-    """LICENSE has no suffix; a rule mixing it with .md paths can still fire."""
+    """LICENSE has no suffix; a rule mixing it with doc globs can still fire."""
     routing = (project / ".claude" / "routing.toml").read_text(encoding="utf-8")
     routing += """
 [[rule]]
 id = "posture"
-paths = ["LICENSE", "README.md"]
+paths = ["LICENSE", "*.md"]
 agents = ["systems-architect"]
 level = "required"
 question = "Does posture match?"

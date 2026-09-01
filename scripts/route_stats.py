@@ -39,20 +39,22 @@ from pathlib import Path
 
 WINDOW_DAYS = 7
 NOISY_FIRINGS = 10
-#: One consult forgives this many blocking firings before a rule counts as
-#: ignored. Consult credit is per agent name, not per rule (the ledger cannot
-#: know which rule a spawn served, and the router's own freshness works the
-#: same way), so a hard consulted==0 test would let one consult of a shared
-#: seat hide every rule naming it; the ratio keeps a heavily fired-at rule
-#: visible anyway.
+#: One answering consult forgives this many blocking firings before a rule
+#: counts as ignored. A consult ANSWERS a rule only when that rule fired
+#: within fresh_hours before it: the ledger cannot attribute a spawn to a
+#: rule directly, but timing can, and without it one consult of a shared
+#: seat would vouch for every rule naming that seat, including rules it
+#: never saw.
 FIRINGS_PER_CONSULT = 10
 BRIEF_BUDGET_WORDS = 1200
 FINDINGS_BUDGET_WORDS = 2000
 SEAT_BUDGET_WORDS = 2200
 
-#: Mirrors consult_router.IGNORED_SUFFIXES: edits to these never reach rule
-#: matching, so a rule whose every path ends in one can never fire.
+#: Mirrors consult_router.IGNORED_SUFFIXES. The router drops these before
+#: matching unless a rule names the exact file, so a path here is reachable
+#: only when it is a literal name rather than a glob.
 IGNORED_SUFFIXES = (".md", ".txt", ".lock")
+GLOB_CHARS = ("*", "?", "[")
 
 
 def _words(path: Path) -> int:
@@ -93,43 +95,56 @@ def report(project: Path, window_days: float) -> list[str]:
 
     cutoff = time.time() - window_days * 24 * 3600
 
+    fresh_secs = float(routing.get("settings", {}).get("fresh_hours", 24)) * 3600
+
     # Only blocking firings count toward the ignored-rule check: a rule may
     # have accumulated advisory-era "A" lines before being promoted, and
     # flagging it as ignored the day after a deliberate promotion would tell
     # the user to undo a decision they just made on the skill's own ladder.
-    blocking: dict[str, int] = {}
+    r_times: dict[str, list[float]] = {}
     for fields in _timestamped_lines(claude / ".route-stats", cutoff):
         if len(fields) == 3 and fields[1] == "R":
-            blocking[fields[0]] = blocking.get(fields[0], 0) + 1
+            r_times.setdefault(fields[0], []).append(float(fields[2]))
 
-    consults: dict[str, int] = {}
+    consults: dict[str, list[float]] = {}
     for fields in _timestamped_lines(claude / ".consults", cutoff):
         if len(fields) == 2:
-            name = fields[0].strip()
-            consults[name] = consults.get(name, 0) + 1
+            consults.setdefault(fields[0].strip(), []).append(float(fields[1]))
 
     lines: list[str] = []
     for rule in routing.get("rule", []):
         rid = str(rule.get("id", "?"))
-        fired = blocking.get(rid, 0)
+        times = r_times.get(rid, [])
+        fired = len(times)
         agents = [str(a) for a in rule.get("agents", [])]
-        consulted = sum(consults.get(a, 0) for a in agents)
+        answered = sum(
+            1
+            for agent in agents
+            for t in consults.get(agent, [])
+            if any(t - fresh_secs <= ft <= t for ft in times)
+        )
         if (rule.get("level") == "required" and fired >= NOISY_FIRINGS
-                and consulted * FIRINGS_PER_CONSULT < fired):
+                and answered * FIRINGS_PER_CONSULT < fired):
             lines.append(
                 f"rule {rid}: fired {fired}x in {window_days:g}d with "
-                f"{consulted} consult(s) of {', '.join(agents)}. It is being "
-                f"ignored, which is how rules get muted. Narrow its globs, add "
-                f"an exclude, or demote it via /roll-call:write-routing-rule."
+                f"{answered} answering consult(s) of {', '.join(agents)}. It "
+                f"is being ignored, which is how rules get muted. Narrow its "
+                f"globs, add an exclude, or demote it via "
+                f"/roll-call:write-routing-rule."
             )
 
         paths = [str(p) for p in rule.get("paths", [])]
-        if paths and all(p.endswith(IGNORED_SUFFIXES) for p in paths):
+        unreachable = [
+            p for p in paths
+            if p.endswith(IGNORED_SUFFIXES) and any(c in p for c in GLOB_CHARS)
+        ]
+        if paths and len(unreachable) == len(paths):
             lines.append(
-                f"rule {rid}: every path it names ends in a suffix the router "
-                f"ignores before matching ({', '.join(IGNORED_SUFFIXES)}), so "
-                f"it can NEVER fire. It is coverage on paper only. Retarget it "
-                f"at a file the router watches, or remove it."
+                f"rule {rid}: every path is a glob over a suffix the router "
+                f"ignores ({', '.join(IGNORED_SUFFIXES)}), so it can NEVER "
+                f"fire; only an exact literal name overrides the suffix gate. "
+                f"It is coverage on paper only. Name the exact files, or "
+                f"remove it."
             )
 
     brief = _words(claude / "agent-brief.md")
