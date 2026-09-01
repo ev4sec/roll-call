@@ -109,8 +109,16 @@ def test_the_timeout_advisory_teaches_once_then_collapses(
     assert "usually a hang" in full, "the first emission must teach in full"
     assert "usually a hang" not in short
     assert "timed out again" in short, "collapsed, not silenced"
-    assert "still not been shown green" in short
-    assert len(short) < len(full) / 4
+    assert "Not shown green since" in short
+    assert "tests.timeout" in short, (
+        "the collapsed line must keep the recovery pointer, because compaction "
+        "can delete the full advisory it refers back to"
+    )
+    # The collapsed line deliberately keeps the two readings and the remedy
+    # (compaction can delete the full advisory it refers back to), so the cut
+    # is roughly 60 percent rather than 90; recoverability outranks the last
+    # few tokens.
+    assert len(short) < len(full) / 2
 
 
 def test_the_timeout_advisory_stays_full_without_state(
@@ -121,6 +129,40 @@ def test_the_timeout_advisory_stays_full_without_state(
                           hanging_suite, plugin_data=None, with_path=True)
         out = json.loads(result.stdout)["hookSpecificOutput"]["additionalContext"]
         assert "usually a hang" in out, "no state dir must mean the full advisory"
+
+
+def test_a_green_run_resets_the_timeout_advisory(
+    hanging_suite: Path, tmp_path: Path
+) -> None:
+    """After a suite is shown green, the next timeout is a new event.
+
+    Without the reset, the collapsed line would assert an unbroken not-green
+    streak that a mid-session green run has made false, and a later, slower
+    but honest suite would inherit a stale one-liner instead of the full
+    two-readings advisory.
+    """
+    data = tmp_path / "plugin-data"
+    data.mkdir()
+    engine = hanging_suite / ".claude" / "engine.toml"
+    hanging = engine.read_text(encoding="utf-8")
+    green = hanging.replace('"import time; time.sleep(5)"', '"pass"')
+
+    first = run_hook("backend_tests.py", timeout_payload(hanging_suite),
+                     hanging_suite, plugin_data=data, with_path=True)
+    assert "usually a hang" in first.stdout
+
+    engine.write_text(green, encoding="utf-8")
+    shown_green = run_hook("backend_tests.py", timeout_payload(hanging_suite),
+                           hanging_suite, plugin_data=data, with_path=True)
+    assert shown_green.returncode == 0
+    assert shown_green.stdout.strip() == "", "a green run is silent, as before"
+
+    engine.write_text(hanging, encoding="utf-8")
+    again = run_hook("backend_tests.py", timeout_payload(hanging_suite),
+                     hanging_suite, plugin_data=data, with_path=True)
+    assert "usually a hang" in again.stdout, (
+        "a timeout after a green run must teach in full again"
+    )
 
 
 # --------------------------------------- dependency_audit missing pip-audit

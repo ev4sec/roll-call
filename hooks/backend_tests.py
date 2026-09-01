@@ -156,7 +156,9 @@ def main() -> int:
                     "hookEventName": "PostToolUse",
                     "additionalContext": (
                         f"The test suite timed out again ({timeout}s; full advisory "
-                        f"earlier this session). It has still not been shown green."
+                        f"earlier this session). Not shown green since: a hang, or "
+                        f"a budget the suite outgrew. Run the suite yourself, or "
+                        f"raise `tests.timeout` in .claude/engine.toml."
                     ),
                 },
             }))
@@ -174,6 +176,11 @@ def main() -> int:
             "reason": "Tests FAILED after editing " + path + ":\n" + out,
             "systemMessage": f"{label}: tests failed - see agent context.",
         }))
+    else:
+        # A green run resolves whatever the timeout advisory was tracking, so
+        # the next timeout is a new event that must teach in full again; the
+        # collapsed line's "not shown green since" stays true by construction.
+        _engine.session_clear(data.get("session_id"), "tests-timeout")
     return 0
 
 

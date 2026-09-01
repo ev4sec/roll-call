@@ -201,6 +201,30 @@ def session_once(session_id: object, key: str) -> bool:
     return True
 
 
+def session_clear(session_id: object, key: str) -> None:
+    """Forget a session_once() sighting, so the next occurrence teaches in full.
+
+    For when the tracked condition was positively resolved (a suite shown
+    green after a timeout): a later recurrence is then a new event, not a
+    repeat, and collapsing it would let the one-line form assert history that
+    is no longer true.
+    """
+    data_dir = os.environ.get("CLAUDE_PLUGIN_DATA")
+    if not data_dir or not isinstance(session_id, str):
+        return
+    safe = "".join(c for c in session_id if c.isalnum() or c in "-_")[:64]
+    safe_key = "".join(c for c in key if c.isalnum() or c in "-_")[:64]
+    if not safe or not safe_key:
+        return
+    import hashlib
+
+    repo = hashlib.sha256(str(project_dir().resolve()).encode("utf-8")).hexdigest()[:16]
+    try:
+        (Path(data_dir) / "once" / f"{repo}-{safe}-{safe_key}").unlink(missing_ok=True)
+    except OSError:
+        pass
+
+
 def repo_for(edited_path: str) -> str:
     """The tree that owns `edited_path`, found by walking up to the root marker.
 
