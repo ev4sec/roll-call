@@ -13,9 +13,9 @@
 # newer wins. The version floor is real rather than cosmetic: the hooks read
 # TOML with `tomllib`, which entered the standard library in 3.11.
 #
-# When nothing suitable is found this says so once a day per machine, in
-# words, and exits 0. It must never block a tool call. A guard that cannot run
-# should make its absence visible and then get out of the way, because a
+# When nothing suitable is found this says so once per session per machine,
+# in words, and exits 0. It must never block a tool call. A guard that cannot
+# run should make its absence visible and then get out of the way, because a
 # session wedged by its own tooling is a worse outcome than an unguarded edit.
 #
 # Usage: sh run.sh <hook-name> [args...]      e.g. sh run.sh consult_router
@@ -47,17 +47,21 @@ if command -v py >/dev/null 2>&1; then
     fi
 fi
 
-# One warning per machine per day. This hook fires up to five times per file
-# edit, and the condition cannot change mid-session without an install, so
-# repeating the identical message trains the reader to scroll past the one
-# copy that matters. No Python exists here by definition, so the stamp is pure
-# shell; without CLAUDE_PLUGIN_DATA it degrades to warning on every
-# invocation, the same direction session_start degrades.
+# One warning per session per machine, matching the per-session once-flags
+# the Python hooks use: a fresh session gets told its guards are inactive,
+# and within a session the message does not repeat five times per edit, which
+# trains the reader to scroll past the one copy that matters. The payload on
+# stdin carries the session id; no Python exists here by definition, so it is
+# fished out with sed, and an unparsable payload degrades to a per-day stamp.
+# Without CLAUDE_PLUGIN_DATA it degrades to warning on every invocation, the
+# same direction session_start degrades. Stale stamps age out after two days.
 if [ -n "${CLAUDE_PLUGIN_DATA:-}" ]; then
-    STAMP="$CLAUDE_PLUGIN_DATA/no-python-warned-$(date +%Y%m%d)"
+    SESSION=$(cat 2>/dev/null | sed -n 's/.*"session_id"[[:space:]]*:[[:space:]]*"\([A-Za-z0-9_-]\{1,64\}\)".*/\1/p' | head -n 1)
+    [ -n "$SESSION" ] || SESSION="day-$(date +%Y%m%d 2>/dev/null || echo unknown)"
+    STAMP="$CLAUDE_PLUGIN_DATA/no-python-warned-$SESSION"
     [ -f "$STAMP" ] && exit 0
     mkdir -p "$CLAUDE_PLUGIN_DATA" 2>/dev/null
-    rm -f "$CLAUDE_PLUGIN_DATA"/no-python-warned-* 2>/dev/null
+    find "$CLAUDE_PLUGIN_DATA" -maxdepth 1 -name 'no-python-warned-*' -mmin +2880 -exec rm -f {} + 2>/dev/null
     : > "$STAMP" 2>/dev/null
 fi
 
