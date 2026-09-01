@@ -90,8 +90,11 @@ when the user asks about a named drift.
 Where a template has moved ahead, name the file and summarize from the
 script's line. **Do not offer to overwrite anything.** Describe the difference
 and let the user decide, because the local copy is the one they tuned and that
-is the whole reason it is theirs. The root `CLAUDE.md` is a merged file the
-script deliberately skips; review it by hand only on request.
+is the whole reason it is theirs. The script compares only the machinery
+prose (procedure, brief, traps, seats, project-side tests): the root
+`CLAUDE.md` is a merged file, `engine.toml` and `routing.toml` are rewritten
+by init on purpose, and the living record documents diverge because they are
+being used. None of those is drift; review them by hand only on request.
 
 ## 7. What the routing is costing
 

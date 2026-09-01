@@ -116,6 +116,11 @@ def substitutions(args: argparse.Namespace) -> dict[str, str]:
         "PROJECT_NAME": args.project_name,
         "PROJECT_SLUG": args.slug,
         "project_slug": args.slug,
+        # engine.toml must record where the tests actually went. `--test-dir`
+        # used to place the files and leave the config saying "tests", so the
+        # test hook watched a directory that did not exist and the drift check
+        # looked for installed files in the wrong place.
+        'dir = "tests"': f'dir = "{args.test_dir}"',
     }
 
 

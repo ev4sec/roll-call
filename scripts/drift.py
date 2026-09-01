@@ -17,10 +17,19 @@ script re-applies the same substitutions (reconstructed from
 remains is real divergence: a template that moved ahead, or a local file the
 user tuned.
 
-The root `CLAUDE.md` is deliberately not compared. Init appends a marked
-section to an existing file rather than owning it, so a diff against the
-template would report the user's own constitution as drift, which is noise
-wearing a finding's name.
+**What is deliberately NOT compared, because a difference there is the install
+working rather than drift.** The root `CLAUDE.md`: init appends a marked
+section rather than owning the file, so a diff would report the user's own
+constitution as drift. `engine.toml` and `routing.toml`: init explicitly
+mandates rewriting both to describe the project, so a healthy install diverges
+from the template forever by design. And the living record documents (vision,
+slice, roadmap, architecture, security-invariants, LESSONS, parked-roles,
+agent-findings): their local content is the point of their existence, and a
+permanent "drifted" line for every filled-in record would bury the one real
+template drift when it arrives. What remains is the machinery prose the
+plugin ships and improves: the operating procedure, the brief, the
+measurement traps, the nine seats, the four project-side tests, and the repro
+README.
 
 Exit code is always 0. This is a report, not a gate. It never writes anything:
 the local copy is the one the user tuned, and that is the whole reason it is
@@ -36,6 +45,11 @@ import sys
 from pathlib import Path
 from types import SimpleNamespace
 
+try:  # Python 3.11+
+    import tomllib
+except ModuleNotFoundError:  # pragma: no cover - 3.10 and older
+    tomllib = None  # type: ignore[assignment]
+
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import scaffold  # noqa: E402
 
@@ -43,25 +57,41 @@ PLUGIN_ROOT = Path(__file__).resolve().parent.parent
 TEMPLATES = PLUGIN_ROOT / "templates"
 
 
-def _project_facts(project: Path) -> SimpleNamespace:
-    """The values init substituted, reconstructed from the instantiated config.
+#: The machinery prose the plugin ships and improves; see the docstring for
+#: why the config files and the living records are excluded.
+MACHINERY = ("operating-procedure.md", "agent-brief.md", "measurement-traps.md")
 
-    A missing or unreadable engine.toml degrades to the template's own
-    placeholder values, which makes the substitution a no-op and the comparison
-    a raw diff: correct for a repo where init never filled anything in.
+
+def _engine_config(project: Path) -> tuple[SimpleNamespace | None, str, str | None]:
+    """(substitution facts, test dir, error), from the instantiated config.
+
+    A MISSING engine.toml degrades to the template's own placeholder values,
+    which makes the substitution a no-op and the comparison a raw diff:
+    correct for a repo where init never filled anything in. A PRESENT but
+    unreadable engine.toml returns an error instead, because comparing with
+    wrong substitutions would report every file as drifted while never naming
+    the actual defect.
     """
-    name, slug, source_root = "PROJECT_NAME", "project_slug", "src/project_slug"
+    facts = SimpleNamespace(project_name="PROJECT_NAME", slug="project_slug",
+                            source_root="src/project_slug", test_dir="tests")
     config = project / ".claude" / "engine.toml"
+    if not config.is_file():
+        return facts, facts.test_dir, None
+    if tomllib is None:
+        return None, facts.test_dir, "needs Python 3.11+ to read engine.toml"
     try:
-        import tomllib
         with config.open("rb") as fh:
-            section = tomllib.load(fh).get("project", {})
-        name = str(section.get("name", name))
-        slug = str(section.get("slug", slug))
-        source_root = str(section.get("source_root", source_root))
-    except (OSError, Exception):  # noqa: BLE001 - degrade to raw comparison
-        pass
-    return SimpleNamespace(project_name=name, slug=slug, source_root=source_root)
+            data = tomllib.load(fh)
+    except OSError as exc:
+        return None, facts.test_dir, f"engine.toml unreadable ({exc})"
+    except tomllib.TOMLDecodeError as exc:
+        return None, facts.test_dir, f"engine.toml unparseable ({exc})"
+    section = data.get("project", {})
+    facts.project_name = str(section.get("name", facts.project_name))
+    facts.slug = str(section.get("slug", facts.slug))
+    facts.source_root = str(section.get("source_root", facts.source_root))
+    facts.test_dir = str(data.get("tests", {}).get("dir", facts.test_dir))
+    return facts, facts.test_dir, None
 
 
 def _expected(template: Path, subs: dict[str, str]) -> list[str]:
@@ -71,7 +101,7 @@ def _expected(template: Path, subs: dict[str, str]) -> list[str]:
 
 def _pairs(project: Path, test_dir: str) -> list[tuple[Path, Path]]:
     claude = project / ".claude"
-    pairs = [(TEMPLATES / name, claude / name) for name in scaffold.DOCUMENTS]
+    pairs = [(TEMPLATES / name, claude / name) for name in MACHINERY]
     pairs += [(t, claude / "agents" / t.name)
               for t in sorted((TEMPLATES / "agents").glob("*.md"))]
     pairs += [(t, project / test_dir / t.name)
@@ -82,20 +112,17 @@ def _pairs(project: Path, test_dir: str) -> list[tuple[Path, Path]]:
     return pairs
 
 
-def _test_dir(project: Path) -> str:
-    try:
-        import tomllib
-        with (project / ".claude" / "engine.toml").open("rb") as fh:
-            return str(tomllib.load(fh).get("tests", {}).get("dir", "tests"))
-    except (OSError, Exception):  # noqa: BLE001
-        return "tests"
-
-
 def report(project: Path) -> list[str]:
-    subs = scaffold.substitutions(_project_facts(project))
+    facts, test_dir, error = _engine_config(project)
+    if error:
+        return [f"drift: {error}. Comparing nothing, because wrong "
+                f"substitutions would report every file as drifted while the "
+                f"actual defect went unnamed. Fix .claude/engine.toml and "
+                f"re-run."]
+    subs = scaffold.substitutions(facts)
     identical = 0
     lines: list[str] = []
-    for template, local in _pairs(project, _test_dir(project)):
+    for template, local in _pairs(project, test_dir):
         rel = local.relative_to(project).as_posix()
         if not local.is_file():
             lines.append(f"never installed: {rel} (shipped as templates/"
@@ -112,9 +139,12 @@ def report(project: Path) -> list[str]:
                 added += 1
             elif op.startswith("- "):
                 removed += 1
-        lines.append(f"drifted: {rel} ({added} line(s) local-only, "
+        lines.append(f"differs: {rel} ({added} line(s) local-only, "
                      f"{removed} line(s) template-only)")
-    lines.append(f"{identical} file(s) match the shipped templates.")
+    lines.append(
+        f"{identical} machinery file(s) match the shipped templates. Config "
+        f"and record documents are yours and are not compared."
+    )
     return lines
 
 

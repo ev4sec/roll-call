@@ -154,10 +154,17 @@ def test_dry_run_writes_absolutely_nothing(tmp_path: Path) -> None:
 
 
 def test_the_test_directory_is_configurable(tmp_path: Path) -> None:
-    """A repo that keeps tests in `spec/` should not sprout a `tests/`."""
+    """A repo that keeps tests in `spec/` should not sprout a `tests/`.
+
+    And engine.toml must record the choice: it used to keep `dir = "tests"`
+    regardless, so the test hook watched a directory that did not exist and
+    the drift check looked for the installed test files in the wrong place.
+    """
     run(tmp_path, "--test-dir", "spec")
     assert list((tmp_path / "spec").glob("test_*.py"))
     assert not (tmp_path / "tests").exists()
+    conf = (tmp_path / ".claude" / "engine.toml").read_text(encoding="utf-8")
+    assert 'dir = "spec"' in conf, "the config must say where the tests went"
 
 
 def test_the_project_side_suite_is_installed(tmp_path: Path) -> None:
