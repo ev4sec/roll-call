@@ -70,7 +70,12 @@ STATS = ".claude/.route-stats"
 STATS_WINDOW_SECONDS = 30 * 24 * 3600
 STATS_MAX_BYTES = 256 * 1024
 
-#: Edits that cannot change behavior and should never summon anyone.
+#: Doc and lockfile churn that should not summon anyone by default. A rule
+#: that names one of these files EXACTLY still fires: writing
+#: ".claude/slice.md" into a rule is a deliberate act, and a router that
+#: quietly ignores it is a guard that looks present and does nothing, which
+#: is the founding failure of this plugin. Glob patterns over these suffixes
+#: never fire; scripts/route_stats.py flags rules built only from those.
 IGNORED_SUFFIXES = (".md", ".txt", ".lock")
 
 
@@ -132,8 +137,16 @@ def owed(rel: str, project: Path) -> tuple[list[dict[str, object]], list[dict[st
 
     required: list[dict[str, object]] = []
     advised: list[dict[str, object]] = []
+    ignored = rel.endswith(IGNORED_SUFFIXES)
     for rule in rules:
-        if not _matches(rel, list(rule.get("paths", []))):
+        paths = [str(p) for p in rule.get("paths", [])]
+        # The suffix gate: doc and lockfile churn matches nothing, EXCEPT a
+        # rule that names this exact file. Equality, not globbing, is the
+        # override, so "**/*.md" stays silent while ".claude/slice.md" fires.
+        if ignored:
+            if rel not in paths:
+                continue
+        elif not _matches(rel, paths):
             continue
         # A path claimed by a broad glob but owned by a narrower rule can be
         # carved out explicitly, so one edit does not summon two seats.
@@ -333,7 +346,7 @@ def main() -> int:
         return 0
 
     path = (payload.get("tool_input") or {}).get("file_path")
-    if not isinstance(path, str) or path.endswith(IGNORED_SUFFIXES):
+    if not isinstance(path, str):
         return 0
 
     project = _project()

@@ -358,6 +358,82 @@ def test_malformed_stamp_file_falls_back_to_full(project: Path, plugin_data: Pat
     assert QUESTION_DM in result.stderr, "unreadable state must mean full block"
 
 
+# -------------------------------------- suffix gate vs explicit .md targets
+
+def test_an_exactly_named_md_file_fires_its_rule(
+    project: Path, plugin_data: Path
+) -> None:
+    """The 0.1.0 defect this closes: five shipped rules named doc files that
+    the suffix gate dropped before matching, so the maintainer's-lane gates
+    could never fire while looking present."""
+    routing = (project / ".claude" / "routing.toml").read_text(encoding="utf-8")
+    routing += """
+[[rule]]
+id = "board"
+paths = [".claude/board.md"]
+agents = ["scope-checker"]
+level = "required"
+why = "Scope arrives as a board line."
+question = "Should this move onto the bench now?"
+"""
+    (project / ".claude" / "routing.toml").write_text(routing, encoding="utf-8")
+    result = fire(project, ".claude/board.md", plugin_data=plugin_data)
+    assert result.returncode == 2
+    assert "scope-checker" in result.stderr
+    assert "Should this move onto the bench now?" in result.stderr
+
+
+def test_a_glob_over_an_ignored_suffix_still_never_fires(
+    project: Path, plugin_data: Path
+) -> None:
+    """Only equality overrides the gate. A glob rule over .md would re-fire
+    on every doc edit in the tree, the exact churn the gate exists to stop."""
+    routing = (project / ".claude" / "routing.toml").read_text(encoding="utf-8")
+    routing += """
+[[rule]]
+id = "all-docs"
+paths = ["**/*.md"]
+agents = ["doc-owner"]
+level = "required"
+why = "Docs matter."
+question = "Is this doc right?"
+"""
+    (project / ".claude" / "routing.toml").write_text(routing, encoding="utf-8")
+    result = fire(project, "docs/notes.md", plugin_data=plugin_data)
+    assert result.returncode == 0
+    assert result.stderr.strip() == ""
+
+
+def test_unnamed_doc_and_lockfile_churn_stays_silent(
+    project: Path, plugin_data: Path
+) -> None:
+    for rel in ("README.md", "poetry.lock", "docs/notes.txt"):
+        result = fire(project, rel, plugin_data=plugin_data)
+        assert result.returncode == 0, f"{rel} summoned someone"
+        assert result.stderr.strip() == ""
+
+
+def test_an_explicit_md_rule_gets_repeat_compression_too(
+    project: Path, plugin_data: Path
+) -> None:
+    routing = (project / ".claude" / "routing.toml").read_text(encoding="utf-8")
+    routing += """
+[[rule]]
+id = "board"
+paths = [".claude/board.md"]
+agents = ["scope-checker"]
+level = "required"
+why = "Scope arrives as a board line."
+question = "Should this move onto the bench now?"
+"""
+    (project / ".claude" / "routing.toml").write_text(routing, encoding="utf-8")
+    fire(project, ".claude/board.md", plugin_data=plugin_data)
+    repeat = fire(project, ".claude/board.md", plugin_data=plugin_data)
+    assert repeat.returncode == 2
+    assert "Should this move onto the bench now?" not in repeat.stderr
+    assert "scope-checker" in repeat.stderr
+
+
 # ------------------------------------------------- advised: once per session
 
 def test_advised_prints_once_per_session(project: Path, plugin_data: Path) -> None:

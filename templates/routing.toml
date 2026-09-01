@@ -19,6 +19,10 @@
 #   agents    Who to ask. More than one means ask them in PARALLEL, one message,
 #             background. Never serially.
 #   paths     Glob patterns, matched against repo-relative POSIX paths.
+#             Doc and lockfile churn (.md, .txt, .lock) is dropped before
+#             matching UNLESS a rule names the exact file: ".claude/slice.md"
+#             as a literal entry fires; "**/*.md" never does. Explicit
+#             targeting is a deliberate act and the router honors it.
 #   exclude   Optional globs subtracted after `paths` match. Use it where a
 #             broad glob overlaps a narrower rule that owns the path, so one
 #             edit does not summon two seats and pay two spawns. A carve-out
