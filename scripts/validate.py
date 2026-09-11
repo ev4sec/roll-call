@@ -164,15 +164,25 @@ def scenario_the_consult_block(tmp: Path) -> None:
         'question = "Name the column, its type, and what it costs to change."\n'
         'why = "A shipped column is a migration."\n', encoding="utf-8")
 
-    payload = {"tool_name": "Edit", "tool_input": {"file_path": str(target)}}
+    payload = {"tool_name": "Edit", "tool_input": {"file_path": str(target)},
+               "session_id": "validate-1"}
+    env = {"CLAUDE_PLUGIN_DATA": str(tmp / "plugin-data")}
 
-    blocked = fire("consult_router", payload, project)
+    blocked = fire("consult_router", payload, project, env)
     check("consult: an owed required consult blocks", blocked.returncode == 2,
           f"rc={blocked.returncode}")
     check("consult: it names the owning seat",
           "systems-architect" in blocked.stderr, blocked.stderr[:160])
     check("consult: it carries the actual question",
           "what it costs to change" in blocked.stderr, blocked.stderr[:160])
+
+    # A rebuilt context is told the consult is still owed, from the router's
+    # own session state, and told nothing once the ledger has it.
+    rebuilt = {"hook_event_name": "SessionStart", "source": "compact",
+               "session_id": "validate-1"}
+    owed = fire("session_rebrief", rebuilt, project, env)
+    check("rebrief: an owed consult survives compaction",
+          "[data-model] -> systems-architect" in owed.stdout, owed.stdout[:160])
 
     # Now record a consult the way agent_watch does, and confirm it clears.
     fire("agent_watch", {"tool_name": "Agent",
@@ -183,9 +193,31 @@ def scenario_the_consult_block(tmp: Path) -> None:
     check("consult: the ledger names the seat",
           "systems-architect" in ledger.read_text(encoding="utf-8"))
 
-    cleared = fire("consult_router", payload, project)
+    cleared = fire("consult_router", payload, project, env)
     check("consult: a fresh consult clears the block", cleared.returncode == 0,
           f"rc={cleared.returncode} err={cleared.stderr[:160]}")
+
+    (project / ".claude" / ".agent-ran").unlink(missing_ok=True)
+    settled = fire("session_rebrief", rebuilt, project, env)
+    check("rebrief: nothing owed means silence", not settled.stdout.strip(),
+          settled.stdout[:160])
+
+    # The seat's claims are queued by the hook, and the brief then counts them.
+    report = {"hook_event_name": "SubagentStop", "agent_type": "systems-architect",
+              "last_assistant_message": "[verified] the column is nullable; ran the migration",
+              "session_id": "validate-1"}
+    fire("agent_report", report, project, env)
+    queue = project / ".claude" / ".pending-findings"
+    rows = queue.read_text(encoding="utf-8").splitlines() if queue.is_file() else []
+    check("claims: a seat's labeled claim is queued by the hook",
+          len(rows) == 1 and rows[0].split("\t")[2:] == ["verified", "[verified] the column is nullable; ran the migration"],
+          repr(rows)[:160])
+    counted = fire("session_rebrief", rebuilt, project, env)
+    check("rebrief: queued claims are counted",
+          "1 claim from systems-architect" in counted.stdout, counted.stdout[:160])
+    fire("agent_report", {**report, "agent_type": "Explore"}, project, env)
+    check("claims: a subagent that is not a seat is not recorded",
+          len(queue.read_text(encoding="utf-8").splitlines()) == 1)
 
     # An unrelated file must never summon anyone.
     other = project / "src" / "unrelated.py"

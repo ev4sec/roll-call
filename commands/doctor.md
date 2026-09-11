@@ -73,6 +73,11 @@ test has been made green by deleting a guard, and that is worth saying plainly.
   router can only report on, never cause.
 - Is `.claude/agent-findings.md` growing? A permanent record with no entries is
   a roster nobody is using.
+- Does `.claude/.pending-findings` hold rows? Each one is a claim a seat made
+  that the hook recorded and nobody has judged yet. Section 8's script counts
+  them; here, only check that the file is in `.claude/.gitignore`. An install
+  from before 0.3.0 will not list it, and the queue will show up as an
+  untracked file until the line `.pending-findings` is added.
 - Does `.claude/scan-rules.toml` exist? Optional, but its absence means the
   security scan is running its generic baseline only.
 
@@ -114,6 +119,21 @@ are machine files, and the script exists precisely so their contents never
 need to enter anyone's context. A rule being ignored is the script's finding
 to make, not an impression to form by scrolling a ledger.
 
+## 8. What the roster's track record says
+
+Run `scripts/seat_stats.py` from `${CLAUDE_PLUGIN_ROOT}` with the interpreter
+found in section 1, passing `--target` as this repository's root, and report
+its lines verbatim. It tallies the verdict column of `agent-findings.md` per
+seat and counts the rows still waiting in `.claude/.pending-findings`. It
+prints only what crosses a threshold: a seat whose reproduced claims are
+refuted often, a seat whose claims are mostly acted on unverified, and a
+queue that is growing or has gone stale. A healthy roster gets one line.
+
+**Do not Read the queue yourself here.** A claim waiting for a verdict is a
+reproduction task, not a doctor finding; the reconcile-board skill is where
+those rows get worked. This section only says how many there are and how
+long the oldest has waited.
+
 ## Output
 
 Group by severity:
@@ -122,5 +142,7 @@ Group by severity:
 - **Asleep.** A guard that runs but can never fire. Usually a dead rule.
 - **Unknown.** Judgment the engine is missing, ordered by which seat it disables.
 - **Drift.** Templates that moved on.
+- **Waiting.** Claims in the queue with no verdict, and any seat the track
+  record says to check before believing.
 
 If everything is healthy, say so in one line and stop.

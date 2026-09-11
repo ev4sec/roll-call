@@ -98,6 +98,14 @@ can never be reused. Edited files are scanned for the security defects that are
 wrong in almost any language. Your test suite runs after edits. Dependency
 manifests get audited when they change.
 
+**A brief for a rebuilt context.** When a session is compacted, resumed, or
+started fresh, the engine reads its own ledgers back to it: the consults the
+router demanded that are still owed, the seats already consulted so they are
+not asked twice, the agent edits nobody has reviewed, and the claims waiting
+for a verdict. The founding failure of this project was an instruction that
+was read at session start and gone by the third edit. A compaction is a
+session start in the middle of the work, and now something fires there.
+
 **A document set that agents actually read.** A vision file, an architecture
 record, a security invariant register, a lessons file, and a board showing what
 is on the bench. These are not documentation. They are the evidence base the
@@ -107,7 +115,11 @@ wrong answers.
 
 **A ledger that keeps score.** Every agent finding is recorded permanently,
 including the ones where an agent was confident and wrong. That record is the
-point. An agent with no track record is just a second opinion.
+point. An agent with no track record is just a second opinion. The claims get
+onto the list by machinery: when a seat finishes, the engine queues every
+claim it labeled, and the verdict is the only part left to a person.
+`/roll-call:doctor` reads the ledger back and names the seat whose claims
+keep failing.
 
 ## Getting started
 
@@ -235,6 +247,12 @@ You should know this before installing anything that hooks into your editor.
   you have not looked at.
 - **Around an agent run**, it notes which source files changed while the agent
   worked, and appends a line to the consult ledger.
+- **When a seat finishes**, it reads the seat's final report and queues each
+  labeled claim in `.claude/.pending-findings`. It records what was claimed,
+  never whether it was right; that verdict is yours.
+- **When a session starts, resumes, or is compacted**, it reads the ledgers
+  above and, only if they hold something, tells the session what is owed,
+  what is unreviewed, and what is waiting for a verdict.
 
 All of it is Python you can read in `hooks/`. Nothing is minified, obfuscated,
 or fetched at runtime. Every hook is launched through `hooks/run.sh`, which
@@ -269,7 +287,7 @@ stands up real repositories and drives the real hooks:
 
 ```
 python -m pytest -q                 # the plugin's own suite
-python scripts/validate.py          # 35 end-to-end checks
+python scripts/validate.py          # 40 end-to-end checks
 claude plugin validate .            # manifest check
 ```
 

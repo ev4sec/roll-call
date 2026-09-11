@@ -197,7 +197,7 @@ same commit as the work that surfaced it:
 | A checkable property of the system | `.claude/security-invariants.md`, as a numbered entry with the measurement in it |
 | Something **every** agent should apply | `.claude/agent-brief.md`: every agent reads it first, by instruction |
 | A standing instruction for **one** agent | that agent's own `.claude/agents/*.md` |
-| An agent claim reproduced, refuted, or acted on unverified | a row in `.claude/agent-findings.md` |
+| An agent claim reproduced, refuted, or acted on unverified | a row in `.claude/agent-findings.md`. The engine queues every labeled claim in `.claude/.pending-findings` when the seat finishes; the row is yours to write when the verdict is in, and the queue row goes when the ledger row lands |
 | A constraint or contract for everyone | `CLAUDE.md` |
 | A trap that will bite the next session | the resume note in the project memory directory |
 | A property worth enforcing mechanically | a test, and then reference the test |

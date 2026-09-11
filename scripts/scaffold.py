@@ -65,6 +65,7 @@ LEDGER_IGNORE_TEXT = """# Written by the roll-call hooks during a session. Local
 .consults
 .agent-ran
 .route-stats
+.pending-findings
 """
 
 MARKER_OPEN = "<!-- roll-call:begin -->"

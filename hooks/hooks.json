@@ -12,6 +12,16 @@
             "statusMessage": "Checking roll-call setup"
           }
         ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "sh \"${CLAUDE_PLUGIN_ROOT}/hooks/run.sh\" session_rebrief",
+            "timeout": 10,
+            "statusMessage": "Reading the engine's ledgers back"
+          }
+        ]
       }
     ],
     "PreToolUse": [
@@ -88,6 +98,18 @@
             "command": "sh \"${CLAUDE_PLUGIN_ROOT}/hooks/run.sh\" agent_watch",
             "timeout": 10,
             "statusMessage": "Recording the consult"
+          }
+        ]
+      }
+    ],
+    "SubagentStop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "sh \"${CLAUDE_PLUGIN_ROOT}/hooks/run.sh\" agent_report",
+            "timeout": 10,
+            "statusMessage": "Queuing the seat's claims for a verdict"
           }
         ]
       }

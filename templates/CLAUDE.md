@@ -92,8 +92,10 @@ loaded here:
 Two halves, and the split matters when something needs changing.
 
 **The machinery ships with the roll-call plugin** and is read-only: the hooks
-that enforce routing, guard publication, scan edited files, and write the
-consult ledger. Update it with `/plugin update roll-call`.
+that enforce routing, guard publication, scan edited files, write the
+consult ledger, queue each seat's claims for a verdict, and read all of that
+back to a session whose context was rebuilt. Update it with
+`/plugin update roll-call`.
 
 **Everything under `.claude/` in this repository belongs to this project**,
 including the agent definitions in `.claude/agents/`. Edit them freely. They are

@@ -44,9 +44,16 @@ you to the answer you are supposed to be checking.
    board, or a file that should have been deleted when its queue emptied.
 3. **The consult ledger.** `.claude/.consults` shows which seats have been busy.
    Heavy consultation on a surface the board calls settled is a strong signal.
-4. **Recently fired routing rules.** Which parts of the tree have been under
+4. **The claim queue.** `.claude/.pending-findings` holds every labeled claim
+   a seat made, one tab-separated row each: timestamp, seat, label, claim.
+   The hook writes it; nothing empties it but a person. For each row, either
+   propose a ledger row for `agent-findings.md` with the verdict and the
+   reproduction, or say it was read and dropped. Delete the rows you moved,
+   so the file stays the list of claims nobody has judged. A row labeled
+   `unlabeled` is a seat that ignored the brief; say so, and fix the seat.
+5. **Recently fired routing rules.** Which parts of the tree have been under
    active change tells you where the work actually is.
-5. **The test suite.** New test files name new surfaces. A skipped or failing
+6. **The test suite.** New test files name new surfaces. A skipped or failing
    test that the board does not mention is usually an unrecorded blocker.
 
 ## Produce four lists

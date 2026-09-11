@@ -70,6 +70,10 @@ def firing_payloads(project: Path) -> dict[str, dict]:
         "unreviewed_agent_edits": {"tool_input": {"command": "git commit -m x"}},
         "agent_watch": {"tool_input": {"subagent_type": "systems-architect"}, "tool_use_id": "t1"},
         "agent_snapshot": {"tool_input": {"subagent_type": "systems-architect"}, "tool_use_id": "t1"},
+        "agent_report": {"hook_event_name": "SubagentStop", "agent_type": "systems-architect",
+                         "last_assistant_message": "[verified] it runs", "session_id": "s1"},
+        "session_rebrief": {"hook_event_name": "SessionStart", "source": "compact",
+                            "session_id": "s1"},
     }
 
 
