@@ -1,5 +1,48 @@
 # Changelog
 
+## 0.3.0 (2026-09-11)
+
+A guard for the one moment nothing fired: the context being rebuilt. And
+the last honor-system record in the engine becomes machinery.
+
+- **Context-loss compaction guard.** The failure this plugin was built
+  around is an instruction read at session start and gone by the third
+  edit. A compaction is a session start in the middle of the work, and until
+  now the engine was silent at it: whatever the router had demanded, whatever
+  had already been consulted, whatever an agent had edited unreviewed, all of
+  it was at the mercy of a summary nobody reviewed. A new `SessionStart`
+  hook fires on every compaction, resume, fork, clear, and startup, and reads
+  the engine's own ledgers back to the session: the consults the router
+  demanded earlier in the session that are still not on the ledger, the seats
+  consulted inside the freshness window so a round is not paid for twice, the
+  agent edits the commit guard has not shown yet, and the claims waiting for
+  a verdict. It prints only when there is something to print, and every line
+  names the file the full record lives in. The owed consults come from the
+  router's own per-session state, so the brief cannot disagree with the
+  router about what is fresh. The hooks cannot stop a context from being
+  rebuilt; they can make sure the rebuilt one is told what they know.
+- Every labeled claim a seat makes is queued the moment the seat finishes.
+  A new hook on `SubagentStop` reads the seat's final report, pulls out each
+  `[verified]`, `[measured]`, `[read]`, `[reasoned]`, and `[asserted]`
+  claim, and appends it to `.claude/.pending-findings` with the seat and the
+  time. A report with no labels gets one row saying so, because a seat that
+  ignores the brief should show up as one rather than as a seat with nothing
+  to say. A report is capped at twenty rows and the cap is written into the
+  queue, never applied silently. Subagents that are not seats in
+  `.claude/agents/` leave nothing. The verdict column is still yours: the
+  hook records what was claimed, not whether it held. Init adds the queue to
+  `.claude/.gitignore`; an existing install adds the line `.pending-findings`
+  by hand.
+- Doctor gains a section on the roster's track record, backed by
+  `scripts/seat_stats.py`. It tallies the verdict column of
+  `agent-findings.md` per seat and reports only what crosses a threshold: a
+  seat whose reproduced claims are refuted two times in five, a seat whose
+  claims are mostly acted on unverified, and a queue that holds rows or has
+  gone stale. The reconcile-board skill works the queue: each row becomes a
+  ledger row with a verdict, or is dropped by someone who read it.
+- The validation harness grows to 40 checks, driving the two new hooks
+  through `run.sh` the way the harness will.
+
 ## 0.2.2 (2026-09-01)
 
 Scope and ecosystem fixes from a full review of the shipped plugin.
