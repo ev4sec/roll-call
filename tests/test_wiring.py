@@ -129,6 +129,9 @@ def test_the_router_is_wired_to_writes_and_the_ledger_to_agents() -> None:
     assert events["consult_router"][0] == "PostToolUse"
     assert "Write" in events["consult_router"][1]
     assert "Edit" in events["consult_router"][1]
-    assert events["agent_watch"] == ("PostToolUse", "Agent")
+    assert events["agent_snapshot"][0] == "SubagentStart"
+    assert events["agent_watch"][0] == "SubagentStop"
+    assert events["agent_report"][0] == "SubagentStop"
+    assert events["turn_end"][0] == "Stop"
     assert events["publish_guard"][0] == "PreToolUse"
     assert events["session_start"][0] == "SessionStart"

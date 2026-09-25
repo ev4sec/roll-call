@@ -1,5 +1,37 @@
 # Changelog
 
+## 0.4.0 (2026-09-24)
+
+Optimizations for the current harness and the current models. One of them
+is a fix.
+
+- **Consult hooks follow the seat, not the tool call.** Subagents run in the
+  background now, so the Agent tool returns at launch. The ledger was stamped
+  before the seat had answered, and the pre/post snapshot was compared before
+  the seat had touched anything, so the commit guard read "nothing changed"
+  on every run. The snapshot moves to `SubagentStart`, the ledger stamp and
+  the diff to `SubagentStop`, keyed by the agent id both events carry. A
+  consult is credited when it is answered. Whatever spawned the seat, the
+  hooks see it.
+- **The brief is preloaded, not read on instruction.** Init writes it as the
+  project skill `.claude/skills/agent-brief/SKILL.md`, and every seat names
+  it in its `skills` list. The read instruction stays as the fallback. An
+  existing install moves `.claude/agent-brief.md` there, adds the
+  frontmatter from the template, and adds the `skills` list to each seat.
+- **Seats declare effort and memory.** Effort follows the standard of
+  evidence: seats that measure or exploit run `high`, seats that read
+  constraint text run `medium`. Seats that hold Bash get `memory: project`.
+  Seats that must not touch the tree do not, because memory turns on the
+  editing tools.
+- **The brief asks for coverage.** Current models filter to a stated cap
+  faithfully and drop what they judge minor. The brief now says the
+  filtering happens downstream, in the claim queue, and asks for a
+  confidence and a severity beside each finding so the check can rank.
+- **A `Stop` hook names consults still owed** when the turn ends, as
+  context for the next turn. It never blocks the stop.
+- `MultiEdit` leaves the router's matcher; the tool is gone. The validation
+  harness counts 42.
+
 ## 0.3.0 (2026-09-11)
 
 A guard for the one moment nothing fired: the context being rebuilt. And

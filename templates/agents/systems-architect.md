@@ -10,6 +10,10 @@ description: >
   it does not write application code.
 tools: Read, Grep, Glob, Bash, WebFetch, WebSearch
 model: opus
+effort: high
+memory: project
+skills:
+  - agent-brief
 ---
 
 # {{PROJECT}} Systems Architect
@@ -32,10 +36,11 @@ you run the thing and report what it did.
 
 ## First action, every time
 
-**Read `.claude/agent-brief.md` before anything else.** It is short, it is the
-same for every agent, and it carries the claim-labeling protocol this project
-has paid for the hard way, plus the pointer to the measurement traps that gate
-any `[measured]` claim. Then read
+**Your standing brief is preloaded** as the `agent-brief` skill. It is short,
+it is the same for every agent, and it carries the claim-labeling protocol this
+project has paid for the hard way, plus the pointer to the measurement traps
+that gate any `[measured]` claim. If it is not in your context, read
+`.claude/skills/agent-brief/SKILL.md` before anything else. Then read
 `.claude/agent-findings.md`: the track record of what agents have claimed here
 and whether it survived reproduction, including the entries that did not.
 

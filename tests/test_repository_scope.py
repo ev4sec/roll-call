@@ -68,8 +68,11 @@ def firing_payloads(project: Path) -> dict[str, dict]:
         "consult_router": {"tool_input": {"file_path": str(project / "src" / "PROJECT_SLUG" / "models.py")}},
         "publish_guard": {"tool_input": {"command": "git push origin main"}},
         "unreviewed_agent_edits": {"tool_input": {"command": "git commit -m x"}},
-        "agent_watch": {"tool_input": {"subagent_type": "systems-architect"}, "tool_use_id": "t1"},
-        "agent_snapshot": {"tool_input": {"subagent_type": "systems-architect"}, "tool_use_id": "t1"},
+        "agent_watch": {"hook_event_name": "SubagentStop", "agent_type": "systems-architect",
+                        "agent_id": "t1"},
+        "agent_snapshot": {"hook_event_name": "SubagentStart", "agent_type": "systems-architect",
+                           "agent_id": "t1"},
+        "turn_end": {"hook_event_name": "Stop", "session_id": "s1"},
         "agent_report": {"hook_event_name": "SubagentStop", "agent_type": "systems-architect",
                          "last_assistant_message": "[verified] it runs", "session_id": "s1"},
         "session_rebrief": {"hook_event_name": "SessionStart", "source": "compact",
@@ -300,7 +303,7 @@ def repo(tmp_path: Path) -> Path:
 
 
 def _agent_round(repo: Path, data: Path, mutate) -> None:
-    payload = {"tool_input": {"subagent_type": "security-engineer"}, "tool_use_id": "call-1"}
+    payload = {"agent_type": "security-engineer", "agent_id": "call-1"}
     before = run_hook("agent_snapshot", payload, repo, {"CLAUDE_PLUGIN_DATA": str(data)},
                       inherit_path=True)
     assert before.returncode == 0, before.stderr
@@ -355,7 +358,7 @@ def test_an_agent_that_changed_nothing_does_not_interrupt_the_commit(
 @needs_git
 def test_without_a_snapshot_the_whole_source_diff_is_shown(repo: Path) -> None:
     (repo / "src" / "a.py").write_text("A = 2\n", encoding="utf-8")
-    payload = {"tool_input": {"subagent_type": "security-engineer"}}
+    payload = {"agent_type": "security-engineer"}
     run_hook("agent_watch", payload, repo, inherit_path=True)
     marker = (repo / ".claude" / ".agent-ran").read_text(encoding="utf-8")
     assert "\t" not in marker
@@ -364,11 +367,16 @@ def test_without_a_snapshot_the_whole_source_diff_is_shown(repo: Path) -> None:
     assert "A = 2" in prompt["hookSpecificOutput"]["permissionDecisionReason"]
 
 
-def test_the_snapshot_hook_is_wired_before_agents() -> None:
+def test_the_snapshot_hook_is_wired_to_the_agent_starting() -> None:
+    """Not to the Agent tool call: that returns at launch for a background
+    agent, and a snapshot taken there is compared before the agent has done
+    anything."""
     wiring = json.loads((ROOT / "hooks" / "hooks.json").read_text(encoding="utf-8"))
-    pre = [
-        (group.get("matcher"), handler["command"])
-        for group in wiring["hooks"]["PreToolUse"]
-        for handler in group["hooks"]
-    ]
-    assert any(m == "Agent" and c.endswith("agent_snapshot") for m, c in pre)
+    start = [handler["command"] for group in wiring["hooks"]["SubagentStart"]
+             for handler in group["hooks"]]
+    stop = [handler["command"] for group in wiring["hooks"]["SubagentStop"]
+            for handler in group["hooks"]]
+    assert any(c.endswith("agent_snapshot") for c in start)
+    assert any(c.endswith("agent_watch") for c in stop)
+    assert "Agent" not in json.dumps(wiring["hooks"].get("PreToolUse", []))
+    assert "Agent" not in json.dumps(wiring["hooks"].get("PostToolUse", []))

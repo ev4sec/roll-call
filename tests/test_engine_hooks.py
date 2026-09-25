@@ -218,7 +218,7 @@ def test_agent_watch_records_both_the_marker_and_the_ledger(project: Path) -> No
     """
     result = run_hook(
         HOOKS / "agent_watch.py",
-        {"tool_input": {"subagent_type": "systems-architect"}},
+        {"hook_event_name": "SubagentStop", "agent_type": "systems-architect"},
         project,
     )
     assert result.returncode == 0
@@ -245,7 +245,7 @@ def test_the_ledger_the_watcher_writes_is_the_ledger_the_router_reads(
     """
     run_hook(
         HOOKS / "agent_watch.py",
-        {"tool_input": {"subagent_type": "systems-architect"}},
+        {"hook_event_name": "SubagentStop", "agent_type": "systems-architect"},
         project,
     )
     result = run_hook(

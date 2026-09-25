@@ -57,10 +57,12 @@ with nothing behind them.
 ## If it earns a seat
 
 - Write `.claude/agents/<name>.md` in the roster's house style: frontmatter with
-  `name`, `description`, `tools`, and `model`; a description that includes the
-  **"Distinct from X, which..."** clause; an instruction to read
-  `.claude/agent-brief.md` first; and an explicit statement of what the seat
-  does *not* do.
+  `name`, `description`, `tools`, `model`, an `effort` that matches the standard
+  of evidence (a seat that measures runs `high`; one that reads constraint text
+  runs `medium`), `memory: project` only where the seat already holds Bash,
+  since memory turns on Write and Edit, and `agent-brief` in its `skills` list
+  so the brief is preloaded; a description that includes the **"Distinct from X,
+  which..."** clause; and an explicit statement of what the seat does *not* do.
 - Add at least one rule to `.claude/routing.toml` naming it. **A seat nothing
   routes to will never be consulted**, and an agent the mechanism never summons
   is decoration.

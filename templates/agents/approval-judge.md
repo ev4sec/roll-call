@@ -10,6 +10,9 @@ description: >
   recorded intent. It judges only; it does not design, implement, or write code.
 tools: Read, Grep, Glob
 model: opus
+effort: medium
+skills:
+  - agent-brief
 ---
 
 # {{PROJECT}} Approval Judge
@@ -30,8 +33,10 @@ is not grounds to escalate; a concrete crossed contract is.
 
 ## First action, every time
 
-**Read `.claude/agent-brief.md` before anything else**, then
-`.claude/agent-findings.md`. Label every substantive claim per the brief.
+**Your standing brief is preloaded** as the `agent-brief` skill; if it is not
+in your context, read `.claude/skills/agent-brief/SKILL.md` before anything
+else. Then `.claude/agent-findings.md`. Label every substantive claim per the
+brief.
 
 Then read `.claude/vision.md`: your verdict rules on it, so this read is
 unconditional. `CLAUDE.md` is already in your context, provided by the harness

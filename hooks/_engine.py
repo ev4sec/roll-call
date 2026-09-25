@@ -309,17 +309,18 @@ def source_snapshot(project: Path, source_root: str) -> dict[str, str] | None:
     return snapshot
 
 
-def snapshot_file(project: Path, tool_use_id: object) -> Path | None:
-    """Where the pre-agent snapshot for one tool call lives, or None.
+def snapshot_file(project: Path, agent_id: object) -> Path | None:
+    """Where the pre-agent snapshot for one agent run lives, or None.
 
     Under the harness-provided plugin data directory, keyed by a hash of the
-    repository path and the tool call id. Without either, there is no
-    snapshot and the commit prompt shows the whole source diff as before.
+    repository path and the agent id that SubagentStart and SubagentStop
+    share. Without either, there is no snapshot and the commit prompt shows
+    the whole source diff as before.
     """
     data_dir = os.environ.get("CLAUDE_PLUGIN_DATA")
-    if not data_dir or not isinstance(tool_use_id, str):
+    if not data_dir or not isinstance(agent_id, str):
         return None
-    safe = "".join(c for c in tool_use_id if c.isalnum() or c in "-_")[:64]
+    safe = "".join(c for c in agent_id if c.isalnum() or c in "-_")[:64]
     if not safe:
         return None
     import hashlib

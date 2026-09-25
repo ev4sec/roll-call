@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-"""PostToolUse hook: remember that an advisory agent ran.
+"""SubagentStop hook: remember that an advisory agent ran, once it has finished.
 
 Two files, two jobs, and they must not be merged:
 
@@ -31,6 +31,15 @@ honor system fails exactly the way a prose routing table fails: it is read at
 session start and forgotten by the third edit. The hook fires whether or not
 anyone remembered.
 
+**Why `SubagentStop`.** Subagents run in the background by default, so the
+Agent tool call returns at launch. A hook on that call stamped the ledger
+before the seat had answered and compared the tree before the seat had
+touched it, which made the commit guard read "nothing changed" for every
+agent run. `SubagentStop` fires when the agent finishes, carries the agent's
+name in `agent_type`, and shares `agent_id` with `SubagentStart`, where the
+snapshot is taken. A consult is credited when it has been answered, not when
+it has been asked.
+
 **Marker line format.** `HH:MM:SS <agent>` on its own means the changed files
 are unknown and the commit guard shows the whole source diff. A tab followed
 by a comma-separated file list names what changed; a tab followed by `-` means
@@ -40,6 +49,7 @@ Produces no output and never blocks.
 """
 
 import json
+import re
 import sys
 import time
 
@@ -47,14 +57,12 @@ import _engine
 
 MARKER = ".claude/.agent-ran"
 CONSULTS = ".claude/.consults"
+AGENT_NAME = re.compile(r"^[A-Za-z0-9_:-]{1,80}$")
 
 
 def changed_files(project, payload) -> list[str] | None:
     """Files under the source root the agent changed, or None if unknown."""
-    tool_input = payload.get("tool_input") or {}
-    if isinstance(tool_input, dict) and tool_input.get("run_in_background"):
-        return None
-    before_path = _engine.snapshot_file(project, payload.get("tool_use_id"))
+    before_path = _engine.snapshot_file(project, payload.get("agent_id"))
     if before_path is None or not before_path.is_file():
         return None
     try:
@@ -73,6 +81,14 @@ def changed_files(project, payload) -> list[str] | None:
     return sorted(p for p in set(before) | set(after) if before.get(p) != after.get(p))
 
 
+def agent_name(payload) -> str:
+    """The subagent's name, or `agent` when the payload does not say."""
+    name = payload.get("agent_type")
+    if isinstance(name, str) and AGENT_NAME.match(name):
+        return name
+    return "agent"
+
+
 def main() -> int:
     try:
         payload = json.load(sys.stdin)
@@ -85,8 +101,7 @@ def main() -> int:
     project = _engine.project_dir()
     marker = project / MARKER
 
-    tool_input = payload.get("tool_input") or {}
-    name = str(tool_input.get("subagent_type", "agent")) if isinstance(tool_input, dict) else "agent"
+    name = agent_name(payload)
     changed = changed_files(project, payload)
     line = f"{time.strftime('%H:%M:%S')} {name}"
     if changed is not None:

@@ -47,11 +47,11 @@ def test_a_fresh_install_reports_no_drift(installed: Path) -> None:
 
 
 def test_a_tuned_file_is_reported_with_direction(installed: Path) -> None:
-    brief = installed / ".claude" / "agent-brief.md"
+    brief = installed / ".claude" / "skills" / "agent-brief" / "SKILL.md"
     brief.write_text(brief.read_text(encoding="utf-8") + "\nlocal tuning\n",
                      encoding="utf-8")
     out = run(installed)
-    assert "differs: .claude/agent-brief.md" in out
+    assert "differs: .claude/skills/agent-brief/SKILL.md" in out
     assert "local-only" in out
 
 

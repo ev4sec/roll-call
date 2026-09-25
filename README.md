@@ -48,7 +48,7 @@ field, its type, whether it is nullable, and what it costs to change later.
 """
 ```
 
-**2. A watcher records every consult.** When you ask an agent something, that
+**2. A watcher records every consult.** When an agent you asked finishes, that
 gets written to a ledger automatically. Not by you remembering to log it. By the
 machinery, every time.
 
@@ -171,7 +171,7 @@ your-repo/
     routing.toml                   who owns which paths
     .gitignore                     keeps the session ledgers out of git
     operating-procedure.md         how work moves through the roster
-    agent-brief.md                 read first by every agent, every time
+    skills/agent-brief/SKILL.md    preloaded into every seat, every time
     agents/                        the nine seats, as editable markdown
     slice.md                       the board
     vision.md  roadmap.md  architecture.md
@@ -186,7 +186,7 @@ your-repo/
 That is 30 files. `TEMPLATE-NOTES.md` is worth a word: the templates ship with
 guidance embedded in them about how to fill each one in, and init lifts all of
 it into that single file rather than leaving it inline. The reason is cost.
-`agent-brief.md` is opened by all nine seats on every round and each agent
+The brief is loaded into all nine seats on every round and each agent
 definition is loaded on every invocation, so a note left in place would be paid
 for on every consult, forever. Nothing loads `TEMPLATE-NOTES.md` automatically.
 It is there when you want it.

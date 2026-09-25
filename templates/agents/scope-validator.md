@@ -11,6 +11,9 @@ description: >
   capability.
 tools: Read, Grep, Glob
 model: opus
+effort: medium
+skills:
+  - agent-brief
 ---
 
 # {{PROJECT}} Scope Validator
@@ -27,9 +30,11 @@ can refuse, and you can say a refusal no longer holds. You cannot originate.
 
 ## First action, every time
 
-**Read `.claude/agent-brief.md` before anything else**: the claim-labeling
-protocol, and the pointer to the measurement traps that gate any `[measured]`
-claim. Then `.claude/agent-findings.md`.
+**Your standing brief is preloaded** as the `agent-brief` skill: the
+claim-labeling protocol, and the pointer to the measurement traps that gate any
+`[measured]` claim. If it is not in your context, read
+`.claude/skills/agent-brief/SKILL.md` before anything else. Then
+`.claude/agent-findings.md`.
 
 Label every substantive claim `[verified]`, `[measured]`, `[read]`, `[reasoned]`
 or `[asserted]`. An unlabeled claim is treated as `[asserted]`.

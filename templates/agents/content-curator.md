@@ -12,6 +12,10 @@ description: >
   not give legal advice.
 tools: Read, Grep, Glob, Bash, WebFetch, WebSearch
 model: opus
+effort: medium
+memory: project
+skills:
+  - agent-brief
 ---
 
 # {{PROJECT}} Content Curator
@@ -44,8 +48,9 @@ Nobody else on the roster carries either half. That is the seat.
 
 ## First action, every time
 
-**Read `.claude/agent-brief.md` before anything else**, then
-`.claude/agent-findings.md`.
+**Your standing brief is preloaded** as the `agent-brief` skill; if it is not
+in your context, read `.claude/skills/agent-brief/SKILL.md` before anything
+else. Then `.claude/agent-findings.md`.
 
 Label every substantive claim `[verified]`, `[measured]`, `[read]`, `[reasoned]`
 or `[asserted]`. **This matters unusually much for you: "this works" is an

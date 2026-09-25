@@ -246,9 +246,11 @@ def test_an_overgrown_findings_ledger_is_flagged_with_the_shipped_remedy(
 
 
 def test_an_overgrown_brief_is_flagged(project: Path) -> None:
-    (project / ".claude" / "agent-brief.md").write_text("word " * 1500, encoding="utf-8")
+    brief = project / ".claude" / "skills" / "agent-brief" / "SKILL.md"
+    brief.parent.mkdir(parents=True, exist_ok=True)
+    brief.write_text("word " * 1500, encoding="utf-8")
     out = run(project)
-    assert "agent-brief.md is 1500 words" in out
+    assert "the agent brief is 1500 words" in out
 
 
 def test_an_overgrown_seat_definition_is_flagged(project: Path) -> None:

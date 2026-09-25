@@ -58,6 +58,11 @@ DOCUMENTS = (
     "parked-roles.md",
 )
 
+#: Documents whose installed path differs from the template name. The brief
+#: installs as a project skill so every seat preloads it by name in its
+#: `skills` list, instead of being told to read it and remembering to.
+DESTINATIONS = {"agent-brief.md": "skills/agent-brief/SKILL.md"}
+
 #: Session ledgers the hooks write under `.claude/`. They are machine state
 #: local to one checkout, so init keeps them out of version control.
 LEDGER_IGNORE = ".claude/.gitignore"
@@ -83,7 +88,7 @@ were written into this repository.
 **Why it is in a separate file.** These notes tell you how to fill in and
 maintain the documents under `.claude/`. They are useful to a person and dead
 weight to an agent, and the documents they came from are read constantly:
-`agent-brief.md` is opened by all nine seats on every round, and each agent
+the agent brief is loaded into all nine seats on every round, and each agent
 definition is loaded on every one of its invocations. Left inline the notes
 would have been a permanent tax on all of it.
 
@@ -240,7 +245,8 @@ def scaffold(project: Path, args: argparse.Namespace) -> Report:
     claude = project / ".claude"
 
     for name in DOCUMENTS:
-        place(TEMPLATES / name, claude / name, subs, report, args.dry_run)
+        place(TEMPLATES / name, claude / DESTINATIONS.get(name, name), subs,
+              report, args.dry_run)
     place_text(project / LEDGER_IGNORE, LEDGER_IGNORE_TEXT, report, args.dry_run)
 
     for agent in sorted((TEMPLATES / "agents").glob("*.md")):
@@ -273,7 +279,9 @@ def write_notes(project: Path, report: Report, dry_run: bool) -> None:
         return
     chunks = [NOTES_HEADER]
     for label, blocks in report.notes:
-        chunks.append(f"\n## {Path(label).name}\n")
+        parts = Path(label).parts
+        heading = "/".join(parts[-2:]) if parts[-1] == "SKILL.md" else parts[-1]
+        chunks.append(f"\n## {heading}\n")
         for block in blocks:
             body = block.removeprefix("<!--").removesuffix("-->").strip()
             body = body.removeprefix("INSTANTIATION:").strip()

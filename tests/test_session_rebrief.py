@@ -124,7 +124,8 @@ def test_an_owed_consult_from_earlier_in_the_session_is_named(project: Path, dat
 
 def test_a_consult_that_landed_on_the_ledger_is_no_longer_owed(project: Path, data: Path) -> None:
     edit(project, "src/app/models.py", data=data)
-    run("agent_watch", {"tool_input": {"subagent_type": "systems-architect"}}, project, data)
+    run("agent_watch", {"hook_event_name": "SubagentStop",
+                        "agent_type": "systems-architect"}, project, data)
     (project / ".claude" / ".agent-ran").unlink()  # the commit guard's job, done by hand
 
     result = run("session_rebrief", start(), project, data)
@@ -189,7 +190,8 @@ def test_queued_claims_are_counted_by_seat(project: Path, data: Path) -> None:
 def test_recent_consults_ride_along_only_when_there_is_something_to_say(
     project: Path, data: Path,
 ) -> None:
-    run("agent_watch", {"tool_input": {"subagent_type": "test-strategist"}}, project, data)
+    run("agent_watch", {"hook_event_name": "SubagentStop",
+                        "agent_type": "test-strategist"}, project, data)
     (project / ".claude" / ".agent-ran").unlink()
     quiet = run("session_rebrief", start(), project, data)
     assert not quiet.stdout.strip(), "a consult alone is not state worth a brief"

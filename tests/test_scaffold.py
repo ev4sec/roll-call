@@ -194,13 +194,14 @@ def test_a_missing_target_is_refused_not_created(tmp_path: Path) -> None:
 def test_installer_guidance_is_lifted_out_of_the_hot_path(tmp_path: Path) -> None:
     """Template notes must not ride along in files agents load constantly.
 
-    `agent-brief.md` is opened by all nine seats on every round and each agent
+    The brief is loaded into all nine seats on every round and each agent
     definition is loaded on every invocation of that seat. Guidance addressed to
     whoever fills the template in is dead weight there, paid forever.
     """
     run(tmp_path)
     claude = tmp_path / ".claude"
-    for name in ("agent-brief.md", "slice.md", "vision.md", "operating-procedure.md"):
+    for name in ("skills/agent-brief/SKILL.md", "slice.md", "vision.md",
+                 "operating-procedure.md"):
         assert "INSTANTIATION" not in (claude / name).read_text(encoding="utf-8")
     for agent in (claude / "agents").glob("*.md"):
         assert "INSTANTIATION" not in agent.read_text(encoding="utf-8")
@@ -220,7 +221,7 @@ def test_nothing_is_actually_discarded(tmp_path: Path) -> None:
     assert notes.is_file()
     assert report["notes_lifted"] > 20
     text = notes.read_text(encoding="utf-8")
-    assert "agent-brief.md" in text and "operating-procedure.md" in text
+    assert "agent-brief/SKILL.md" in text and "operating-procedure.md" in text
 
 
 def test_the_notes_file_is_not_regenerated_over_an_edited_one(tmp_path: Path) -> None:

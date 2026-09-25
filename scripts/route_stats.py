@@ -21,7 +21,7 @@ passing checks trains the reader to skim it:
     which is how rules get muted, and a muted rule takes the credible ones
     down with it. The named remedy is /roll-call:write-routing-rule, so
     de-escalation stays a human act made through the existing skill.
-  * Documents growing in the most expensive read paths: agent-brief.md is
+  * Documents growing in the most expensive read paths: the agent brief is
     read by every seat on every consult, agent-findings.md the same and
     append-only by design, and each seat definition is re-paid on every spawn
     of that seat.
@@ -176,10 +176,10 @@ def report(project: Path, window_days: float) -> list[str]:
                 f"remove it."
             )
 
-    brief = _words(claude / "agent-brief.md")
+    brief = _words(claude / "skills" / "agent-brief" / "SKILL.md")
     if brief > BRIEF_BUDGET_WORDS:
         lines.append(
-            f"agent-brief.md is {brief} words (budget {BRIEF_BUDGET_WORDS}): every "
+            f"the agent brief is {brief} words (budget {BRIEF_BUDGET_WORDS}): every "
             f"word is read by every seat on every consult. Trim it, or lift a "
             f"slow-path section into a file the brief points at instead."
         )

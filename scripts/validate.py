@@ -81,7 +81,8 @@ def scenario_python_repo(tmp: Path) -> None:
     check("python repo: judgment slots preserved", report["judgment_slots"] > 50)
 
     # The board and the brief must be free of installer guidance.
-    brief = (project / ".claude" / "agent-brief.md").read_text(encoding="utf-8")
+    brief = (project / ".claude" / "skills" / "agent-brief" / "SKILL.md").read_text(
+        encoding="utf-8")
     check("python repo: brief has no installer comments",
           "INSTANTIATION" not in brief)
 
@@ -184,9 +185,16 @@ def scenario_the_consult_block(tmp: Path) -> None:
     check("rebrief: an owed consult survives compaction",
           "[data-model] -> systems-architect" in owed.stdout, owed.stdout[:160])
 
-    # Now record a consult the way agent_watch does, and confirm it clears.
-    fire("agent_watch", {"tool_name": "Agent",
-                         "tool_input": {"subagent_type": "systems-architect"}},
+    # The turn ends with the consult still owed, and the Stop hook says so.
+    ended = fire("turn_end", {"hook_event_name": "Stop", "session_id": "validate-1"},
+                 project, env)
+    check("turn end: an owed consult is named when the turn ends",
+          "[data-model] -> systems-architect" in ended.stdout, ended.stdout[:160])
+
+    # Now record a consult the way agent_watch does, at SubagentStop, and
+    # confirm it clears.
+    fire("agent_watch", {"hook_event_name": "SubagentStop",
+                         "agent_type": "systems-architect", "agent_id": "a1"},
          project)
     ledger = project / ".claude" / ".consults"
     check("consult: the ledger is written by the hook", ledger.is_file())
@@ -201,6 +209,10 @@ def scenario_the_consult_block(tmp: Path) -> None:
     settled = fire("session_rebrief", rebuilt, project, env)
     check("rebrief: nothing owed means silence", not settled.stdout.strip(),
           settled.stdout[:160])
+    quiet_end = fire("turn_end", {"hook_event_name": "Stop", "session_id": "validate-1"},
+                     project, env)
+    check("turn end: nothing owed means silence", not quiet_end.stdout.strip(),
+          quiet_end.stdout[:160])
 
     # The seat's claims are queued by the hook, and the brief then counts them.
     report = {"hook_event_name": "SubagentStop", "agent_type": "systems-architect",

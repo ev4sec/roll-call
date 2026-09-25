@@ -12,6 +12,10 @@ description: >
   application code and does not make architecture calls.
 tools: Read, Grep, Glob, Bash
 model: opus
+effort: high
+memory: project
+skills:
+  - agent-brief
 ---
 
 # {{PROJECT}}: the practitioner in the chair
@@ -59,8 +63,10 @@ narrate the task in order, and then you check every claim the artifact makes.
 
 ## First action, every time
 
-**Read `.claude/agent-brief.md` before anything else**, then
-`.claude/agent-findings.md`. Label every substantive claim per the brief.
+**Your standing brief is preloaded** as the `agent-brief` skill; if it is not
+in your context, read `.claude/skills/agent-brief/SKILL.md` before anything
+else. Then `.claude/agent-findings.md`. Label every substantive claim per the
+brief.
 
 `CLAUDE.md` is already in your context (the harness provides it, without its
 imports): cite its constraints rather than re-reading the file. Read

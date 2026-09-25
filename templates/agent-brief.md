@@ -1,3 +1,12 @@
+---
+name: agent-brief
+description: >
+  The standing brief every roll-call seat carries into a consult: the claim
+  labels, the track record, and where the durable facts live. Preloaded into
+  each seat by its skills list; not a command.
+user-invocable: false
+---
+
 # Standing brief: read this before answering
 
 Every agent on this project reads this file first, every time. It is
@@ -52,6 +61,12 @@ get acted on.** If you cannot produce the command, say so and say what would
 settle it. That is a useful answer. A confident sentence in place of a missing
 measurement is not.
 
+**Report for coverage; the filtering happens after you.** Every labeled claim
+you make is queued by machinery the moment you finish, and a person gives it
+a verdict before it is acted on. So do not drop a finding because it looks
+minor or because you are unsure of it. Report it, and put a confidence
+(`confirmed` or `plausible`) and a severity beside it so the check can rank.
+
 Your report re-enters a context that pays for every word. Findings beyond your
 seat's cap get one line each, never silence, and raw tool output is quoted
 only where a specific line supports a specific finding.
@@ -87,6 +102,15 @@ disagreement was resolved by running something.
 
 If you are shown a correction to your own earlier answer, check it. One
 "correction" issued to an agent was itself wrong.
+
+## Your memory is your notes; the ledger is the record
+
+Seats that hold Bash have a memory directory of their own, and should use it: a
+pattern in this codebase, a measurement worth keeping, a trap that bit. It is
+the seat's own, and nothing checks it. Seats that must not touch the tree have
+none, because memory turns on the editing tools. The record that counts is `.claude/agent-findings.md`,
+written after your claims are reproduced. A claim is settled when the ledger
+says so, not when your notes do.
 
 ## Where the durable facts live
 

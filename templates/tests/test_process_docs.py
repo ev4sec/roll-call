@@ -38,21 +38,21 @@ PROCESS = ROOT / ".claude"
 #:
 #: * `CLAUDE.md` is auto-loaded into every primary session.
 #: * `operating-procedure.md` is imported by it, so it inherits that guarantee.
-#: * `agent-brief.md` is the first thing every agent definition instructs.
+#: * the agent brief is preloaded into every seat through its `skills` list.
 #:
 #: Nothing else qualifies. Being mentioned in a file nobody opens is the
 #: failure, not the fix.
 ENTRY_POINTS = (
     ROOT / "CLAUDE.md",
     PROCESS / "operating-procedure.md",
-    PROCESS / "agent-brief.md",
+    PROCESS / "skills" / "agent-brief" / "SKILL.md",
 )
 
 #: Documents that are deliberately unreachable, and must stay that way.
 #:
 #: `TEMPLATE-NOTES.md` holds the guidance that shipped inside the engine
 #: templates, lifted out when they were written here. Being unreferenced is the
-#: entire point: `agent-brief.md` is opened by all nine seats on every round and
+#: entire point: the brief is loaded into all nine seats on every round and
 #: each agent definition is loaded on every invocation, so leaving that guidance
 #: inline meant paying for it on every consult, forever. It is written for a
 #: person, it is read when a person wants it, and nothing should point an agent
@@ -88,7 +88,7 @@ def test_every_process_document_is_reachable(doc: Path) -> None:
         pytest.skip(f"{doc.name} is unreferenced on purpose")
     assert doc.name in _entry_text(), (
         f"{doc.name} is not named in CLAUDE.md, operating-procedure.md or "
-        f"agent-brief.md, so nothing that is guaranteed to be read points at it. "
+        f"the agent brief, so nothing that is guaranteed to be read points at it. "
         f"Either reference it from one of those, or delete it. A finding recorded "
         f"somewhere that does not govern is not operative."
     )
@@ -97,17 +97,18 @@ def test_every_process_document_is_reachable(doc: Path) -> None:
 @pytest.mark.parametrize(
     "agent", sorted((PROCESS / "agents").glob("*.md")), ids=lambda p: p.stem
 )
-def test_every_agent_is_told_to_read_the_brief(agent: Path) -> None:
+def test_every_agent_preloads_the_brief(agent: Path) -> None:
     """The brief carries the measurement traps and the claim-labeling protocol.
 
-    A seat that does not open it answers without the labels, and an unlabeled
+    A seat that does not carry it answers without the labels, and an unlabeled
     claim is treated as `[asserted]`, so the seat's whole output drops in value
-    on its first use, silently.
+    on its first use, silently. The `skills` list loads it; the path in the body
+    is the fallback.
     """
     text = agent.read_text(encoding="utf-8")
-    assert "agent-brief.md" in text, (
-        f"{agent.stem} is never told to read the standing brief, so it will "
-        f"answer without the claim labels and without the known measurement traps."
+    assert "agent-brief" in text, (
+        f"{agent.stem} neither preloads nor is told to read the standing brief, so "
+        f"it will answer without the claim labels and the known measurement traps."
     )
 
 
@@ -134,11 +135,11 @@ def test_the_roster_the_brief_describes_is_the_roster_that_exists() -> None:
     A stale list there means a seat answers believing a domain is uncovered when
     it is owned, which is how two seats both decline the same question.
     """
-    brief = (PROCESS / "agent-brief.md").read_text(encoding="utf-8")
+    brief = (PROCESS / "skills" / "agent-brief" / "SKILL.md").read_text(encoding="utf-8")
     roster = sorted(p.stem for p in (PROCESS / "agents").glob("*.md"))
     assert roster, "no agents found; this test would be vacuous"
     missing = [name for name in roster if name not in brief]
-    assert not missing, f"agent-brief.md does not mention {missing}"
+    assert not missing, f"the agent brief does not mention {missing}"
 
 
 def test_the_routing_table_parses_and_is_not_empty() -> None:

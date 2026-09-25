@@ -195,7 +195,7 @@ same commit as the work that surfaced it:
 | What was learned | Where it goes |
 |---|---|
 | A checkable property of the system | `.claude/security-invariants.md`, as a numbered entry with the measurement in it |
-| Something **every** agent should apply | `.claude/agent-brief.md`: every agent reads it first, by instruction |
+| Something **every** agent should apply | `.claude/skills/agent-brief/SKILL.md`: preloaded into every seat through its `skills` list |
 | A standing instruction for **one** agent | that agent's own `.claude/agents/*.md` |
 | An agent claim reproduced, refuted, or acted on unverified | a row in `.claude/agent-findings.md`. The engine queues every labeled claim in `.claude/.pending-findings` when the seat finishes; the row is yours to write when the verdict is in, and the queue row goes when the ledger row lands |
 | A constraint or contract for everyone | `CLAUDE.md` |
@@ -316,7 +316,7 @@ the control:
   here it merely cannot advise, and wedging every edit over a syntax error is
   the worse failure.
 - **`.claude/.consults`**: an append-only ledger written by `agent_watch.py`
-  when an agent runs. **Not maintained by hand.** A ledger on the honor system
+  when an agent finishes. **Not maintained by hand.** A ledger on the honor system
   would fail exactly the way the prose table did.
 - **`tests/test_consult_router.py`**: the regression anchor. If the table is
   edited so a previously-routed change stops routing, the test says so.

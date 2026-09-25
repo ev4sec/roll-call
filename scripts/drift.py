@@ -101,7 +101,8 @@ def _expected(template: Path, subs: dict[str, str]) -> list[str]:
 
 def _pairs(project: Path, test_dir: str) -> list[tuple[Path, Path]]:
     claude = project / ".claude"
-    pairs = [(TEMPLATES / name, claude / name) for name in MACHINERY]
+    pairs = [(TEMPLATES / name, claude / scaffold.DESTINATIONS.get(name, name))
+             for name in MACHINERY]
     pairs += [(t, claude / "agents" / t.name)
               for t in sorted((TEMPLATES / "agents").glob("*.md"))]
     pairs += [(t, project / test_dir / t.name)

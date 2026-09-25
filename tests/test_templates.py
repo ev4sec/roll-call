@@ -102,15 +102,28 @@ def test_every_agent_has_frontmatter_with_a_matching_name(agent: str) -> None:
 
 
 @pytest.mark.parametrize("agent", sorted(p.name for p in AGENTS.glob("*.md")))
-def test_every_agent_is_told_to_read_the_brief(agent: str) -> None:
-    """The brief is the only file every seat opens, which is what makes it work.
-
-    A seat that is not pointed at it answers without the measurement traps and
-    the claim-labeling rules, and answers wrong in the specific ways those were
-    written to prevent.
+def test_every_agent_preloads_the_brief(agent: str) -> None:
+    """The brief is the one document every seat carries, which is what makes
+    it work. It is preloaded through the `skills` list rather than read on
+    instruction, and the instruction stays as the fallback for an install
+    whose brief is not yet a skill.
     """
     text = (AGENTS / agent).read_text(encoding="utf-8")
-    assert "agent-brief.md" in text, f"{agent}: never told to read the brief"
+    head = text.split("---", 2)[1]
+    assert "- agent-brief" in head, f"{agent}: skills list does not preload the brief"
+    assert "skills/agent-brief/SKILL.md" in text, f"{agent}: no fallback path to the brief"
+
+
+@pytest.mark.parametrize("agent", sorted(p.name for p in AGENTS.glob("*.md")))
+def test_every_agent_declares_effort_and_memory(agent: str) -> None:
+    """Effort follows the standard of evidence. Memory is the seat's own notes,
+    and it turns on Write and Edit, so only a seat that already holds Bash gets
+    it: a seat defined as never touching the tree must not gain the tools to."""
+    head = (AGENTS / agent).read_text(encoding="utf-8").split("---", 2)[1]
+    assert re.search(r"^effort: (low|medium|high|xhigh|max)$", head, re.MULTILINE), agent
+    tools = re.search(r"^tools: (.*)$", head, re.MULTILINE).group(1)
+    has_memory = bool(re.search(r"^memory: project$", head, re.MULTILINE))
+    assert has_memory == ("Bash" in tools), f"{agent}: memory grant does not match Bash grant"
 
 
 def test_the_constitution_imports_the_operating_procedure() -> None:

@@ -26,17 +26,6 @@
     ],
     "PreToolUse": [
       {
-        "matcher": "Agent",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "sh \"${CLAUDE_PLUGIN_ROOT}/hooks/run.sh\" agent_snapshot",
-            "timeout": 15,
-            "statusMessage": "Noting the tree before the agent runs"
-          }
-        ]
-      },
-      {
         "matcher": "Bash|PowerShell",
         "hooks": [
           {
@@ -56,7 +45,7 @@
     ],
     "PostToolUse": [
       {
-        "matcher": "Write|Edit|MultiEdit|NotebookEdit",
+        "matcher": "Write|Edit|NotebookEdit",
         "hooks": [
           {
             "type": "command",
@@ -89,15 +78,16 @@
             "statusMessage": "Building and inspecting the distribution"
           }
         ]
-      },
+      }
+    ],
+    "SubagentStart": [
       {
-        "matcher": "Agent",
         "hooks": [
           {
             "type": "command",
-            "command": "sh \"${CLAUDE_PLUGIN_ROOT}/hooks/run.sh\" agent_watch",
-            "timeout": 10,
-            "statusMessage": "Recording the consult"
+            "command": "sh \"${CLAUDE_PLUGIN_ROOT}/hooks/run.sh\" agent_snapshot",
+            "timeout": 15,
+            "statusMessage": "Noting the tree before the agent runs"
           }
         ]
       }
@@ -107,9 +97,27 @@
         "hooks": [
           {
             "type": "command",
+            "command": "sh \"${CLAUDE_PLUGIN_ROOT}/hooks/run.sh\" agent_watch",
+            "timeout": 15,
+            "statusMessage": "Recording the consult"
+          },
+          {
+            "type": "command",
             "command": "sh \"${CLAUDE_PLUGIN_ROOT}/hooks/run.sh\" agent_report",
             "timeout": 10,
             "statusMessage": "Queuing the seat's claims for a verdict"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "sh \"${CLAUDE_PLUGIN_ROOT}/hooks/run.sh\" turn_end",
+            "timeout": 10,
+            "statusMessage": "Checking for consults still owed"
           }
         ]
       }
