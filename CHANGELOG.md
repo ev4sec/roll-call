@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.4.2 (2026-09-30)
+
+A follow-on to the directory review: the write tools get the same
+least-privilege treatment the shell access got in 0.4.1.
+
+- **init and seat scope their write access.** Both declared a bare `Write`
+  and `Edit` in `allowed-tools`, which pre-approved writing anywhere. They
+  only ever write under `.claude/`: init edits the engine and routing tables,
+  and seat adds an agent file and edits the routing and parked-roles registers.
+  Both now declare `Edit(.claude/**)`, which also governs the Write tool, so a
+  write anywhere else prompts the user.
+
 ## 0.4.1 (2026-09-30)
 
 Two fixes from the plugin directory review. Neither changes how the engine
