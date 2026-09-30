@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.4.1 (2026-09-30)
+
+Two fixes from the plugin directory review. Neither changes how the engine
+runs.
+
+- **The commands scope their shell access.** `doctor` and `init` declared a
+  bare `Bash` in `allowed-tools`, which pre-approved every shell command
+  without asking. Each now lists only what it runs: the interpreter version
+  probes and the specific plugin scripts under `${CLAUDE_PLUGIN_ROOT}`, one
+  entry per interpreter. Anything else, such as a project's own test command,
+  prompts as it should.
+- **The plugin ships an icon.** `plugin.json` now points at `assets/icon.svg`,
+  so the directory listing no longer falls back to a generic avatar.
+
 ## 0.4.0 (2026-09-24)
 
 Optimizations for the current harness and the current models. One of them
