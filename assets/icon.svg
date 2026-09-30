@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-label="Roll Call roster">
+  <rect width="512" height="512" rx="112" fill="#1e293b"/>
+  <g fill="none" stroke="#34d399" stroke-width="26" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M116 158 l26 28 l52 -62"/>
+    <path d="M116 246 l26 28 l52 -62"/>
+    <path d="M116 334 l26 28 l52 -62"/>
+  </g>
+  <g fill="#e2e8f0">
+    <rect x="238" y="150" width="158" height="28" rx="14"/>
+    <rect x="238" y="238" width="158" height="28" rx="14"/>
+    <rect x="238" y="326" width="158" height="28" rx="14"/>
+  </g>
+</svg>
