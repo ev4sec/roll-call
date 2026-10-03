@@ -7,7 +7,7 @@
   "plugins": [
     {
       "name": "roll-call",
-      "displayName": "Roll Call",
+      "displayName": "roll-call",
       "description": "A self-enforcing development process for Claude Code: routes each change to the reviewer that owns it and proves the consult happened, gates publishing and packaging, and keeps the project's governing documents checked against reality. Includes a replaceable nine-seat roster that covers your development stack and then some.",
       "author": {
         "name": "Erik Vazquez"
