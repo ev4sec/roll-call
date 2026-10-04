@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.4.3 (2026-10-04)
+
+- **doctor and init no longer pre-approve the interpreter version probes.**
+  The directory scan still held both commands for broad shell access after
+  0.4.1, and the `python3 --version:*` entries (with the `python` and `py -3`
+  variants) were the only ones not pinned to a plugin script. They are gone,
+  so the one-time version check prompts the user. The plugin script entries
+  stay as they were.
+
 ## 0.4.2 (2026-09-30)
 
 A follow-on to the directory review: the write tools get the same

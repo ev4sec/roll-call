@@ -1,6 +1,6 @@
 ---
 description: Set up roll-call in this repository. Detects the stack, writes the engine documents and agent roster into .claude/, and seeds a routing table from the real file layout.
-allowed-tools: Read, Glob, Grep, Edit(.claude/**), Bash(python3 --version:*), Bash(python --version:*), Bash(py -3 --version:*), Bash(python3 ${CLAUDE_PLUGIN_ROOT}/scripts/scaffold.py:*), Bash(python ${CLAUDE_PLUGIN_ROOT}/scripts/scaffold.py:*), Bash(py -3 ${CLAUDE_PLUGIN_ROOT}/scripts/scaffold.py:*)
+allowed-tools: Read, Glob, Grep, Edit(.claude/**), Bash(python3 ${CLAUDE_PLUGIN_ROOT}/scripts/scaffold.py:*), Bash(python ${CLAUDE_PLUGIN_ROOT}/scripts/scaffold.py:*), Bash(py -3 ${CLAUDE_PLUGIN_ROOT}/scripts/scaffold.py:*)
 ---
 
 # Set up roll-call in this repository

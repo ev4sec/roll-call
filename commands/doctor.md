@@ -1,6 +1,6 @@
 ---
 description: Check that roll-call is actually working in this repository. Reports dead routing rules, silent hooks, unfilled placeholders, and template drift.
-allowed-tools: Read, Glob, Grep, Bash(python3 --version:*), Bash(python --version:*), Bash(py -3 --version:*), Bash(python3 ${CLAUDE_PLUGIN_ROOT}/scripts/drift.py:*), Bash(python ${CLAUDE_PLUGIN_ROOT}/scripts/drift.py:*), Bash(py -3 ${CLAUDE_PLUGIN_ROOT}/scripts/drift.py:*), Bash(python3 ${CLAUDE_PLUGIN_ROOT}/scripts/route_stats.py:*), Bash(python ${CLAUDE_PLUGIN_ROOT}/scripts/route_stats.py:*), Bash(py -3 ${CLAUDE_PLUGIN_ROOT}/scripts/route_stats.py:*), Bash(python3 ${CLAUDE_PLUGIN_ROOT}/scripts/seat_stats.py:*), Bash(python ${CLAUDE_PLUGIN_ROOT}/scripts/seat_stats.py:*), Bash(py -3 ${CLAUDE_PLUGIN_ROOT}/scripts/seat_stats.py:*)
+allowed-tools: Read, Glob, Grep, Bash(python3 ${CLAUDE_PLUGIN_ROOT}/scripts/drift.py:*), Bash(python ${CLAUDE_PLUGIN_ROOT}/scripts/drift.py:*), Bash(py -3 ${CLAUDE_PLUGIN_ROOT}/scripts/drift.py:*), Bash(python3 ${CLAUDE_PLUGIN_ROOT}/scripts/route_stats.py:*), Bash(python ${CLAUDE_PLUGIN_ROOT}/scripts/route_stats.py:*), Bash(py -3 ${CLAUDE_PLUGIN_ROOT}/scripts/route_stats.py:*), Bash(python3 ${CLAUDE_PLUGIN_ROOT}/scripts/seat_stats.py:*), Bash(python ${CLAUDE_PLUGIN_ROOT}/scripts/seat_stats.py:*), Bash(py -3 ${CLAUDE_PLUGIN_ROOT}/scripts/seat_stats.py:*)
 ---
 
 # Check the engine
