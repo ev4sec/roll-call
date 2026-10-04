@@ -1,6 +1,6 @@
 ---
 description: Check that roll-call is actually working in this repository. Reports dead routing rules, silent hooks, unfilled placeholders, and template drift.
-allowed-tools: Read, Glob, Grep, Bash(python3 ${CLAUDE_PLUGIN_ROOT}/scripts/drift.py:*), Bash(python ${CLAUDE_PLUGIN_ROOT}/scripts/drift.py:*), Bash(py -3 ${CLAUDE_PLUGIN_ROOT}/scripts/drift.py:*), Bash(python3 ${CLAUDE_PLUGIN_ROOT}/scripts/route_stats.py:*), Bash(python ${CLAUDE_PLUGIN_ROOT}/scripts/route_stats.py:*), Bash(py -3 ${CLAUDE_PLUGIN_ROOT}/scripts/route_stats.py:*), Bash(python3 ${CLAUDE_PLUGIN_ROOT}/scripts/seat_stats.py:*), Bash(python ${CLAUDE_PLUGIN_ROOT}/scripts/seat_stats.py:*), Bash(py -3 ${CLAUDE_PLUGIN_ROOT}/scripts/seat_stats.py:*)
+allowed-tools: Read, Glob, Grep, Bash(python3 ${CLAUDE_PLUGIN_ROOT}/scripts/doctor.py:*), Bash(python ${CLAUDE_PLUGIN_ROOT}/scripts/doctor.py:*), Bash(py -3 ${CLAUDE_PLUGIN_ROOT}/scripts/doctor.py:*)
 ---
 
 # Check the engine
@@ -18,9 +18,17 @@ A report that lists twenty passing checks trains the reader to skim it.
 
 ## 1. Can the machinery run at all
 
-- `python3 --version`, then `python`, then `py -3`. Is one of them 3.11+?
-- If not, that is the headline. Every hook is inert. Nothing else matters until
-  it is fixed, so say that first and keep the rest brief.
+Run `scripts/doctor.py` from `${CLAUDE_PLUGIN_ROOT}` with `python3`, passing
+`--target` as this repository's root. If that spelling is missing or the
+script exits 3 (the interpreter reported itself older than 3.11), try `python`,
+then `py -3`. Keep the output: its first line names the interpreter, and its
+`[drift]`, `[routing]` and `[seats]` blocks are what sections 6 to 8 report.
+Run it once. **Do not probe `--version` separately**; the script reports on
+the interpreter it is running under, which is the only answer that matters.
+
+- If no spelling gets past the version line, that is the headline. Every hook
+  is inert. Nothing else matters until it is fixed, so say that first and keep
+  the rest brief.
 
 ## 2. Is the project described
 
@@ -37,7 +45,7 @@ This is the most valuable section. For each rule in `.claude/routing.toml`:
   nothing is a seat nobody will ever be sent to. And can the router actually
   reach what they match: doc and lockfile edits (.md, .txt, .lock) are dropped
   before matching unless a rule names the exact file, so a glob over those
-  suffixes matches files and still never fires. Section 7's script checks
+  suffixes matches files and still never fires. Section 7's report checks
   this mechanically; a rule can be alive here and dead there, and dead wins.
 - **Phantom seat.** Does every agent it names exist in `.claude/agents/`? A rule
   naming a missing agent blocks on a consult that cannot happen.
@@ -74,7 +82,7 @@ test has been made green by deleting a guard, and that is worth saying plainly.
 - Is `.claude/agent-findings.md` growing? A permanent record with no entries is
   a roster nobody is using.
 - Does `.claude/.pending-findings` hold rows? Each one is a claim a seat made
-  that the hook recorded and nobody has judged yet. Section 8's script counts
+  that the hook recorded and nobody has judged yet. Section 8's report counts
   them; here, only check that the file is in `.claude/.gitignore`. An install
   from before 0.3.0 will not list it, and the queue will show up as an
   untracked file until the line `.pending-findings` is added.
@@ -86,15 +94,14 @@ test has been made green by deleting a guard, and that is worth saying plainly.
 roll-call deliberately never rewrites files in a repository, so improvements to
 the shipped templates do not reach an existing install.
 
-Run `scripts/drift.py` from `${CLAUDE_PLUGIN_ROOT}` with the interpreter found
-in section 1, passing `--target` as this repository's root, and report its
-lines. It re-applies the substitutions init performed and the note-stripping,
-then diffs each shipped template against the local copy in the subprocess, so
-the comparison costs the same whether the documents total two hundred words or
-twenty thousand. **Do not Read template and local pairs side by side**; that
-was the old procedure and it pulled 30k+ words into context on a full install,
-landing on exactly the sessions already in trouble. Read a specific pair only
-when the user asks about a named drift.
+Report the `[drift]` block from section 1's run. It re-applies the
+substitutions init performed and the note-stripping, then diffs each shipped
+template against the local copy inside the script, so the comparison costs the
+same whether the documents total two hundred words or twenty thousand. **Do not
+Read template and local pairs side by side**; that was the old procedure and it
+pulled 30k+ words into context on a full install, landing on exactly the
+sessions already in trouble. Read a specific pair only when the user asks about
+a named drift.
 
 Where a template has moved ahead, name the file and summarize from the
 script's line. **Do not offer to overwrite anything.** Describe the difference
@@ -107,12 +114,11 @@ being used. None of those is drift; review them by hand only on request.
 
 ## 7. What the routing is costing
 
-Run `scripts/route_stats.py` from `${CLAUDE_PLUGIN_ROOT}` with the interpreter
-found in section 1, passing `--target` as this repository's root, and report
-its lines verbatim. It aggregates the hook-written fire-rate ledger against
-the consult ledger and the routing table, and it prints only what crosses a
-threshold: a required rule being fired at and ignored, or a document growing
-in one of the expensive read paths. A healthy table gets one line.
+Report the `[routing]` block from section 1's run verbatim. It aggregates the
+hook-written fire-rate ledger against the consult ledger and the routing table,
+and it prints only what crosses a threshold: a required rule being fired at and
+ignored, or a document growing in one of the expensive read paths. A healthy
+table gets one line.
 
 **Do not Read `.claude/.route-stats` or `.claude/.consults` yourself.** They
 are machine files, and the script exists precisely so their contents never
@@ -121,13 +127,12 @@ to make, not an impression to form by scrolling a ledger.
 
 ## 8. What the roster's track record says
 
-Run `scripts/seat_stats.py` from `${CLAUDE_PLUGIN_ROOT}` with the interpreter
-found in section 1, passing `--target` as this repository's root, and report
-its lines verbatim. It tallies the verdict column of `agent-findings.md` per
-seat and counts the rows still waiting in `.claude/.pending-findings`. It
-prints only what crosses a threshold: a seat whose reproduced claims are
-refuted often, a seat whose claims are mostly acted on unverified, and a
-queue that is growing or has gone stale. A healthy roster gets one line.
+Report the `[seats]` block from section 1's run verbatim. It tallies the
+verdict column of `agent-findings.md` per seat and counts the rows still
+waiting in `.claude/.pending-findings`. It prints only what crosses a
+threshold: a seat whose reproduced claims are refuted often, a seat whose
+claims are mostly acted on unverified, and a queue that is growing or has gone
+stale. A healthy roster gets one line.
 
 **Do not Read the queue yourself here.** A claim waiting for a verdict is a
 reproduction task, not a doctor finding; the reconcile-board skill is where

@@ -30,8 +30,14 @@ Work it out yourself. Do not interrogate the user.
   repo root unless it genuinely is.
 - **Test directory and command.** What the project already uses. Do not impose
   pytest on a repo that runs `npm test`.
-- **Interpreter.** `python3 --version`, falling back to `python` and `py -3`.
-  roll-call needs **3.11 or newer**.
+- **Interpreter and plan.** Run the scaffold from section 3 with `--dry-run`
+  and the values you just detected, using `python3`. If that spelling is
+  missing, fails to parse the script, or exits 3 (the interpreter reported
+  itself older than 3.11), try `python`, then `py -3`. roll-call needs **3.11
+  or newer**. The spelling that works is the one to use from here on, and the
+  dry run's report is the plan you show the user in section 2. **Do not probe
+  `--version` separately**; the dry run already answers it, writes nothing,
+  and its permission is the one this command holds.
 
 If no interpreter of 3.11+ exists, say so plainly and stop. Name what to
 install. **Never install anything yourself.** The hooks will be inert until it
@@ -55,8 +61,9 @@ python "${CLAUDE_PLUGIN_ROOT}/scripts/scaffold.py" \
   --source-root "<source root>" --test-dir "<test dir>"
 ```
 
-Add `--dry-run` first if you want to show the user the plan. Read the report:
-`written`, `skipped`, `appended`, and the count of judgment placeholders.
+Use the interpreter spelling section 1 settled on, without `--dry-run` this
+time. Read the report: `written`, `skipped`, `appended`, and the count of
+judgment placeholders.
 
 ## 4. Fill in `engine.toml`
 

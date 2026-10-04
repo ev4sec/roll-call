@@ -287,7 +287,7 @@ stands up real repositories and drives the real hooks:
 
 ```
 python -m pytest -q                 # the plugin's own suite
-python scripts/validate.py          # 40 end-to-end checks
+python scripts/validate.py          # 42 end-to-end checks
 claude plugin validate .            # manifest check
 ```
 
@@ -296,7 +296,9 @@ claude plugin validate .            # manifest check
 Issues and pull requests are welcome. If you are proposing a new agent for the
 roster, read `commands/seat.md` first: a seat has to bring a distinct standard
 of evidence, not a distinct topic, and that bar applies to the shipped roster
-too.
+too. In your own project, the `find-roster-gap` skill works from the other
+end: it walks the work coming up, asks which seat owns each item, and hands
+only the unowned ones to `/roll-call:seat`.
 
 ## License
 

@@ -14,6 +14,10 @@ expensive.
 
 So this command exists to say no well, and to make the no useful.
 
+It judges a proposal; it does not look for one. When the question is whether
+the roster is missing someone at all, the `find-roster-gap` skill walks the
+work first and sends only the unowned items here.
+
 ## The bar
 
 From the operating procedure:

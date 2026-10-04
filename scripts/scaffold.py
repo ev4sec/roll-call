@@ -323,7 +323,20 @@ def human(report: Report) -> str:
     return "\n".join(lines) or "Nothing to do."
 
 
+#: The hooks need tomllib. Checked here, not by a separate `--version` probe,
+#: so init's dry run doubles as the interpreter check and the command needs no
+#: pre-approved interpreter entry that is not pinned to a plugin file.
+MINIMUM_PYTHON = (3, 11)
+
+
 def main(argv: list[str] | None = None) -> int:
+    if sys.version_info[:2] < MINIMUM_PYTHON:
+        here = ".".join(str(part) for part in sys.version_info[:3])
+        floor = ".".join(str(part) for part in MINIMUM_PYTHON)
+        print(f"interpreter: Python {here} at {sys.executable} is older than "
+              f"{floor}; roll-call cannot run under it.")
+        return 3
+
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--project-name", required=True)
     parser.add_argument("--slug", required=True)

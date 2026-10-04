@@ -1,5 +1,29 @@
 # Changelog
 
+## 0.5.0 (2026-10-04)
+
+- **New skill: `find-roster-gap`.** `/seat` judges a proposal but cannot
+  find one, and the parked-roles register is blind to the role nobody
+  proposed. The skill walks the work that is coming (the board's next items,
+  roadmap and architecture triggers that have fired, unrouted surfaces,
+  claims no seat could check) and asks which seat owns each item. Items owned
+  by a stretch become edits to that seat; only unowned items, stated as one
+  sentence of evidence, go to `/roll-call:seat`, which still rules.
+- **doctor runs one script.** `scripts/doctor.py` reports the interpreter it
+  runs under, then the drift, routing and seat reports in one process. The
+  command's shell grant drops from nine entries to three, and the version
+  check needs no separate probe, so the prompt 0.4.3 introduced is gone. The
+  script parses under any Python so an old interpreter gets a line, not a
+  traceback, and one failing report no longer hides the other two.
+- **init's dry run is the interpreter check.** `scaffold.py` refuses an
+  interpreter older than 3.11 with a readable line and exit code 3, and init
+  runs the dry run first, so the check and the plan shown to the user come
+  from the same call.
+- **A test pins the directory's rules.** `tests/test_directory_policy.py`
+  fails on a shell grant not pinned to a plugin script, an unscoped write
+  grant, a fetch tool in a command, a new file that reads the environment, or
+  a package launcher anywhere in the plugin.
+
 ## 0.4.3 (2026-10-04)
 
 - **doctor and init no longer pre-approve the interpreter version probes.**
