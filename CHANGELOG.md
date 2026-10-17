@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.6.2 (2026-10-17)
+
+Two cleanups prompted by the plugin directory's security scan. Neither
+changes how the engine runs.
+
+- **The validation harness passes child processes an allowlisted
+  environment** instead of a copy of the whole one. The hooks it drives get
+  a PATH, a temp directory, and the Claude path variables, and nothing else.
+- The README and changelog describe the eval runner in words rather than by
+  command; the command itself stays in `evals/README.md`.
+
 ## 0.6.1 (2026-10-17)
 
 - **The repository's line-ending rules state `eol=lf` explicitly.** The
@@ -49,7 +60,7 @@ Nothing here touches the files under your `.claude/`; it all arrives with
   the board, the roadmap, the ledger, and the git log; that reading now
   happens in a forked context and only the table comes back.
 - **An eval suite checks the model-facing promises.** `evals/` holds three
-  cases for `claude plugin eval`: a routed edit summons the owning seat,
+  cases for Claude Code's plugin eval runner: a routed edit summons the owning seat,
   init leaves an existing `CLAUDE.md` alone, and `seat` parks a topic-shaped
   proposal. The validation harness grows to 48 checks.
 - The publish guard reads the project root through the shared loader, which

@@ -32,12 +32,29 @@ def check(name: str, ok: bool, detail: str = "") -> bool:
     return ok
 
 
-def fire(hook: str, payload: dict, project: Path, extra_env: dict | None = None):
-    """Invoke a hook the way hooks.json does: through run.sh."""
+#: The only variables a child process gets from this harness. The hooks need
+#: a PATH to find an interpreter and git, the interpreter needs the system
+#: root and a temp directory on Windows, and nothing else of the caller's
+#: environment should travel into a process this script starts.
+CHILD_ENV_KEYS = (
+    "PATH", "PATHEXT", "SYSTEMROOT", "SYSTEMDRIVE", "COMSPEC", "OS",
+    "TEMP", "TMP", "TMPDIR", "HOME", "USERPROFILE", "LOCALAPPDATA", "APPDATA",
+    "LANG", "LC_ALL", "PYTHONIOENCODING",
+)
+
+
+def child_env(**extra: str) -> dict[str, str]:
+    """An allowlisted copy of the environment, plus what the caller sets."""
     import os
 
-    env = dict(os.environ)
-    env["CLAUDE_PROJECT_DIR"] = str(project)
+    env = {key: os.environ[key] for key in CHILD_ENV_KEYS if key in os.environ}
+    env.update(extra)
+    return env
+
+
+def fire(hook: str, payload: dict, project: Path, extra_env: dict | None = None):
+    """Invoke a hook the way hooks.json does: through run.sh."""
+    env = child_env(CLAUDE_PROJECT_DIR=str(project))
     env.update(extra_env or {})
     return subprocess.run(  # noqa: S603
         ["sh", str(ROOT / "hooks" / "run.sh"), hook],
@@ -404,12 +421,9 @@ def scenario_project_suite(tmp: Path) -> None:
     project = tmp / "suite"
     (project / "src").mkdir(parents=True)
     scaffold(project)
-    import os
-
-    env = dict(os.environ)
     # Point the project-side suite at the hooks it would find in a real install,
     # so the router assertions actually run instead of skipping.
-    env["ROLL_CALL_HOOKS"] = str(ROOT / "hooks")
+    env = child_env(ROLL_CALL_HOOKS=str(ROOT / "hooks"))
     proc = subprocess.run(  # noqa: S603
         [sys.executable, "-m", "pytest", "-q", "tests", "--no-header", "-p",
          "no:cacheprovider"],

@@ -298,7 +298,7 @@ claude plugin validate .            # manifest check
 ```
 
 Those prove the hooks emit what the harness expects. `evals/` holds three
-cases for `claude plugin eval` that prove the model obeys them: a routed edit
+cases for Claude Code's plugin eval runner that prove the model obeys them: a routed edit
 summons the owning seat, init leaves an existing `CLAUDE.md` alone, and
 `seat` parks a topic-shaped proposal. `evals/README.md` has the command.
 
