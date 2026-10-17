@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.6.1 (2026-10-17)
+
+- **The repository's line-ending rules state `eol=lf` explicitly.** The
+  plugin directory's fetch rejects a `.gitattributes` rule that sets `text`
+  without an `eol`, so 0.6.0 was never scanned. No file content changes;
+  every shipped file was already stored with LF endings.
+
 ## 0.6.0 (2026-10-17)
 
 Faster edits, a gentler first week, and a doctor that does its own counting.

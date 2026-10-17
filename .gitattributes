@@ -1,8 +1,11 @@
 # run.sh is executed by sh on every platform; a CRLF checkout would inject \r
 # into the shebang and every line. Pin LF for everything the machinery runs.
-* text=auto
+# Every rule states eol=lf explicitly: the plugin directory's fetch rejects a
+# line-ending rule with no eol setting.
+* text=auto eol=lf
 *.sh text eol=lf
 *.py text eol=lf
 *.json text eol=lf
 *.toml text eol=lf
 *.md text eol=lf
+*.yaml text eol=lf
