@@ -7,8 +7,10 @@ meant three subprocesses, nine `allowed-tools` entries (one per script per
 interpreter spelling), and a version probe that either prompted the user or had
 to be pre-approved as an interpreter entry not pinned to a plugin file, which
 the plugin directory holds for review. Here the interpreter reports on itself
-and the three reports run in-process, so the command needs one entry per
-interpreter spelling and nothing else.
+and the reports run in-process, so the command needs one entry per interpreter
+spelling and nothing else. `health.py` carries the checks the command once
+asked the model to perform by hand: dead rules, phantom seats, placeholders,
+and whether the ledgers are being written.
 
 **Why the syntax is old.** This file has to parse on whatever `python` happens
 to be first on the PATH, including one too old to run roll-call, so that the
@@ -54,10 +56,15 @@ def main(argv=None):
     from pathlib import Path
 
     import drift
+    import health
     import route_stats
     import seat_stats
 
     sections = (
+        ("config", lambda root: health.config_report(root)),
+        ("rules", lambda root: health.rules_report(root)),
+        ("placeholders", lambda root: health.placeholders_report(root)),
+        ("ledgers", lambda root: health.ledgers_report(root)),
         ("drift", lambda root: drift.report(root)),
         ("routing", lambda root: route_stats.report(root, route_stats.WINDOW_DAYS)),
         ("seats", lambda root: seat_stats.report(root)),

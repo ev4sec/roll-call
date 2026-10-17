@@ -39,7 +39,6 @@ NEVER_GRANTED = {"WebFetch", "WebSearch", "Write", "Edit", "Bash", "Bash(*)"}
 ENVIRONMENT_READERS = {
     "hooks/_engine.py",
     "hooks/consult_router.py",
-    "hooks/publish_guard.py",
     "hooks/session_start.py",
     "scripts/drift.py",
     "scripts/route_stats.py",
@@ -47,7 +46,9 @@ ENVIRONMENT_READERS = {
     "scripts/seat_stats.py",
     "scripts/validate.py",
     "templates/tests/test_consult_router.py",
+    "tests/conftest.py",
     "tests/test_advisory_collapse.py",
+    "tests/test_boot.py",
     "tests/test_consult_router.py",
     "tests/test_repository_scope.py",
 }
@@ -63,7 +64,11 @@ LAUNCHERS = re.compile(
 )
 
 SKIP_DIRS = {".git", "_working", ".playwright-mcp", "__pycache__", ".pytest_cache"}
-TEXT_SUFFIXES = {".py", ".md", ".json", ".toml", ".sh", ".txt", ".ini", ""}
+TEXT_SUFFIXES = {".py", ".md", ".json", ".toml", ".sh", ".txt", ".ini", ".yaml", ".yml", ""}
+
+#: The only shape a hook command may take, in hooks.json or in a skill's own
+#: hooks block: the shim, with the plugin root quoted, naming one hook.
+HOOK_COMMAND = re.compile(r'^sh "\$\{CLAUDE_PLUGIN_ROOT\}/hooks/run\.sh" [a-z_]+$')
 
 
 def shipped_files() -> list[Path]:
@@ -104,6 +109,31 @@ def test_shell_grants_are_pinned_to_an_existing_plugin_script(path: Path) -> Non
             assert (ROOT / "scripts" / match.group(1)).is_file(), f"{tool} names a missing script"
         elif tool.startswith(("Edit(", "Write(")):
             assert tool == SCOPED_EDIT, f"{tool} writes outside .claude/"
+
+
+def frontmatter(path: Path) -> str:
+    match = re.match(r"---\n(.*?)\n---\n", path.read_text(encoding="utf-8"), re.S)
+    return match.group(1) if match else ""
+
+
+@pytest.mark.parametrize("path", COMPONENTS, ids=lambda p: str(p.relative_to(ROOT)))
+def test_a_skill_hook_runs_only_the_shim(path: Path) -> None:
+    """A skill may register hooks when invoked. Each one must be the same
+    pinned shim command as hooks.json, or it is a new shell surface for the
+    directory to hold."""
+    for line in frontmatter(path).splitlines():
+        stripped = line.strip()
+        if stripped.startswith("command:"):
+            command = stripped[len("command:"):].strip().strip("'\"")
+            assert HOOK_COMMAND.match(command), f"{path.name}: hook command is not the shim: {command}"
+
+
+def test_a_fork_skill_waits_or_says_it_runs_in_the_background() -> None:
+    """A forked skill that returns a table the user is waiting on must wait."""
+    for path in ROOT.glob("skills/*/SKILL.md"):
+        text = frontmatter(path)
+        if re.search(r"^context:\s*fork\s*$", text, re.M):
+            assert re.search(r"^background:\s*false\s*$", text, re.M), path.name
 
 
 def test_no_new_file_reads_the_environment() -> None:

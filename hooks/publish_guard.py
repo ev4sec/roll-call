@@ -39,7 +39,6 @@ approving without reading, on the one prompt that matters.
 """
 
 import json
-import os
 import re
 import shlex
 import subprocess
@@ -298,7 +297,9 @@ def main() -> int:
         data = json.load(sys.stdin)
         ti = data.get("tool_input") or {}
         cmd = ti.get("command") or ""
-        cwd = data.get("cwd") or os.environ.get("CLAUDE_PROJECT_DIR")
+        cwd = data.get("cwd") or (
+            str(_engine.project_dir()) if _engine.have_project_dir() else None
+        )
     except Exception:
         return ask(
             f"{label} policy: could not parse the tool call to check whether it "

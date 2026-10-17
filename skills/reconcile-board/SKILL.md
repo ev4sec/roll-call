@@ -1,6 +1,8 @@
 ---
 name: reconcile-board
 description: Check the project board in .claude/slice.md against what the repository actually shows, and propose the corrections. Use when the board looks stale, at a slice boundary, before a planning conversation, or when someone asks what the current state of the project is. Also use when an agent has just given advice that seems to assume an out-of-date picture of the work.
+paths:
+  - ".claude/slice.md"
 ---
 
 # Reconcile the board with reality

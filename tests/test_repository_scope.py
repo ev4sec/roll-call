@@ -63,6 +63,10 @@ def firing_payloads(project: Path) -> dict[str, dict]:
     return {
         "security_scan": {"tool_input": {"file_path": str(danger)}},
         "backend_tests": {"tool_input": {"file_path": str(danger)}},
+        "post_batch": {"hook_event_name": "PostToolBatch", "session_id": "s1",
+                       "tool_calls": [{"tool_name": "Edit", "tool_use_id": "t1",
+                                       "tool_input": {"file_path": str(danger)},
+                                       "tool_response": "ok"}]},
         "dependency_audit": {"tool_input": {"file_path": str(project / "package.json")}},
         "artifact_check": {"tool_input": {"file_path": str(project / "pyproject.toml")}},
         "consult_router": {"tool_input": {"file_path": str(project / "src" / "PROJECT_SLUG" / "models.py")}},

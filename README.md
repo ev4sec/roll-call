@@ -95,8 +95,8 @@ reference implementation, not a requirement.
 so pushing to a local mirror stays silent and pushing to a public remote does
 not. Package uploads are caught separately, because a released version number
 can never be reused. Edited files are scanned for the security defects that are
-wrong in almost any language. Your test suite runs after edits. Dependency
-manifests get audited when they change.
+wrong in almost any language. Your test suite runs after each batch of edits.
+Dependency manifests get audited when they change.
 
 **A brief for a rebuilt context.** When a session is compacted, resumed, or
 started fresh, the engine reads its own ledgers back to it: the consults the
@@ -236,15 +236,21 @@ You should know this before installing anything that hooks into your editor.
   `.claude/engine.toml` first and stays silent where init has not run. An
   empty `.claude/.roll-call-ignore` opts a repository out for good.
 - **When a file is written** through the editor tools, the engine checks your
-  routing table, scans the edited file for security patterns, and may run your
-  test suite. If you changed a dependency manifest or packaging config, it may
-  audit dependencies or build your package into a temporary directory. A file
+  routing table and scans the edited file for security patterns. A file
   changed by a shell command, a script, or a git operation is not a write the
-  editor tools report, so the router does not see it; the routing table
-  governs the edits the session makes, not everything that can touch a file.
+  editor tools report, so the router does not see it at that moment; the
+  routing table governs the edits the session makes, not everything that can
+  touch a file.
+- **After each batch of edits**, it may run your test suite, once for the
+  batch. If a dependency manifest or packaging config changed, it may audit
+  dependencies or build your package into a temporary directory.
 - **Before a shell command runs**, it checks whether that command publishes
   something, and whether an agent has left uncommitted edits in your source that
   you have not looked at.
+- **When a turn ends**, it names any required consult still owed, including
+  one for a routed file that changed by some means other than the editor
+  tools, which it finds by reading the working tree. Once per session, as
+  context, never as a block.
 - **Around an agent run**, it notes which source files changed while the agent
   worked, and appends a line to the consult ledger.
 - **When a seat finishes**, it reads the seat's final report and queues each
@@ -287,9 +293,14 @@ stands up real repositories and drives the real hooks:
 
 ```
 python -m pytest -q                 # the plugin's own suite
-python scripts/validate.py          # 42 end-to-end checks
+python scripts/validate.py          # 48 end-to-end checks
 claude plugin validate .            # manifest check
 ```
+
+Those prove the hooks emit what the harness expects. `evals/` holds three
+cases for `claude plugin eval` that prove the model obeys them: a routed edit
+summons the owning seat, init leaves an existing `CLAUDE.md` alone, and
+`seat` parks a topic-shaped proposal. `evals/README.md` has the command.
 
 ## Contributing
 

@@ -58,24 +58,18 @@
             "command": "sh \"${CLAUDE_PLUGIN_ROOT}/hooks/run.sh\" security_scan",
             "timeout": 60,
             "statusMessage": "Security scanning edited code"
-          },
+          }
+        ]
+      }
+    ],
+    "PostToolBatch": [
+      {
+        "hooks": [
           {
             "type": "command",
-            "command": "sh \"${CLAUDE_PLUGIN_ROOT}/hooks/run.sh\" backend_tests",
-            "timeout": 300,
-            "statusMessage": "Running tests"
-          },
-          {
-            "type": "command",
-            "command": "sh \"${CLAUDE_PLUGIN_ROOT}/hooks/run.sh\" dependency_audit",
-            "timeout": 200,
-            "statusMessage": "Auditing dependencies"
-          },
-          {
-            "type": "command",
-            "command": "sh \"${CLAUDE_PLUGIN_ROOT}/hooks/run.sh\" artifact_check",
-            "timeout": 320,
-            "statusMessage": "Building and inspecting the distribution"
+            "command": "sh \"${CLAUDE_PLUGIN_ROOT}/hooks/run.sh\" post_batch",
+            "timeout": 600,
+            "statusMessage": "Running tests and auditing the batch"
           }
         ]
       }
@@ -116,7 +110,7 @@
           {
             "type": "command",
             "command": "sh \"${CLAUDE_PLUGIN_ROOT}/hooks/run.sh\" turn_end",
-            "timeout": 10,
+            "timeout": 20,
             "statusMessage": "Checking for consults still owed"
           }
         ]

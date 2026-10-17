@@ -28,8 +28,9 @@ ROOT = Path(__file__).resolve().parent.parent
 WIRING = ROOT / "hooks" / "hooks.json"
 MANIFEST = ROOT / ".claude-plugin" / "plugin.json"
 
-#: Files in `hooks/` that are deliberately not hooks.
-NOT_HOOKS = {"_engine.py"}
+#: Files in `hooks/` that are deliberately not hooks: the shared config loader
+#: and the interpreter bootstrap that `run.sh` runs every hook through.
+NOT_HOOKS = {"_engine.py", "_boot.py"}
 
 DISPATCH = re.compile(
     r'^sh "\$\{CLAUDE_PLUGIN_ROOT\}/hooks/run\.sh" ([a-z_]+)$'
@@ -77,10 +78,23 @@ def test_every_wired_hook_exists_on_disk() -> None:
     assert not missing, f"hooks.json names hooks that do not exist: {missing}"
 
 
+#: Hooks invoked by `post_batch.py` rather than by hooks.json directly. They
+#: still run standalone, and the batch hook must actually import each one.
+BATCHED = {"backend_tests", "dependency_audit", "artifact_check"}
+
+
 def test_every_hook_on_disk_is_wired() -> None:
     """An unwired hook is a guard nobody is getting."""
-    unwired = sorted(on_disk() - wired_names())
+    unwired = sorted(on_disk() - wired_names() - BATCHED)
     assert not unwired, f"hooks exist but nothing invokes them: {unwired}"
+
+
+def test_the_batched_hooks_are_reached_through_post_batch() -> None:
+    """Moving a check out of hooks.json is only safe if the batch hook calls it."""
+    source = (ROOT / "hooks" / "post_batch.py").read_text(encoding="utf-8")
+    for name in sorted(BATCHED):
+        assert f"import {name}" in source, f"post_batch.py does not import {name}"
+        assert (ROOT / "hooks" / f"{name}.py").is_file()
 
 
 def test_every_command_goes_through_the_interpreter_shim() -> None:
@@ -135,3 +149,17 @@ def test_the_router_is_wired_to_writes_and_the_ledger_to_agents() -> None:
     assert events["turn_end"][0] == "Stop"
     assert events["publish_guard"][0] == "PreToolUse"
     assert events["session_start"][0] == "SessionStart"
+    # The expensive checks run once per batch, and only there: a copy left on
+    # PostToolUse would run the suite twice per edit.
+    assert events["post_batch"][0] == "PostToolBatch"
+    for heavy in ("backend_tests", "dependency_audit", "artifact_check"):
+        assert heavy not in events, f"{heavy} is wired directly; post_batch owns it"
+
+
+def test_the_shim_runs_every_hook_through_the_bootstrap() -> None:
+    """`run.sh` must hand the hook to `_boot.py`, never to the interpreter
+    directly, or the version floor is gone and an old Python dies in a
+    traceback nobody attributes to the plugin."""
+    shim = (ROOT / "hooks" / "run.sh").read_text(encoding="utf-8")
+    assert '"$BOOT" "$TARGET"' in shim
+    assert (ROOT / "hooks" / "_boot.py").is_file()

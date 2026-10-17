@@ -52,14 +52,17 @@ import unreviewed_agent_edits
 
 PENDING = ".claude/.pending-findings"
 MARKER = ".claude/.agent-ran"
-ADVISED_PREFIX = "advised:"
+#: State keys that are not router firings: the advised once-flag, and the
+#: Stop hook's records of what it has already said this session.
+SKIP_PREFIXES = ("advised:", "tree:", "stop:")
 
 
-def owed_lines(project: Path, session_id: object) -> tuple[list[str], list[str]]:
-    """(rules still owed this session, seats consulted inside the window).
+def owed_rules(project: Path, session_id: object) -> tuple[list[tuple[str, str]], list[str]]:
+    """((rule key, line) for each rule still owed this session, seats consulted).
 
     Both come from the router's own readers, so this hook cannot disagree
-    with the router about what counts as fresh or which rule is which.
+    with the router about what counts as fresh or which rule is which. The key
+    is the router's own, so a caller can keep per-rule state in the same file.
     """
     if consult_router.tomllib is None:
         return [], []
@@ -67,7 +70,7 @@ def owed_lines(project: Path, session_id: object) -> tuple[list[str], list[str]]
         key for key in consult_router._seen_rules(
             consult_router._state_file(project, session_id)
         )
-        if not key.startswith(ADVISED_PREFIX)
+        if not key.startswith(SKIP_PREFIXES)
     }
     try:
         settings, rules = consult_router._load_rules(project)
@@ -79,15 +82,22 @@ def owed_lines(project: Path, session_id: object) -> tuple[list[str], list[str]]
         window = 24.0
     fresh = consult_router._fresh_consults(project, window)
 
-    owed: list[str] = []
+    owed: list[tuple[str, str]] = []
     for rule in rules:
-        if consult_router._rule_key(rule) not in seen:
+        key = consult_router._rule_key(rule)
+        if key not in seen:
             continue
         missing = [str(a) for a in rule.get("agents", []) if str(a) not in fresh]
         if missing:
-            owed.append(f"  [{rule.get('id', '?')}] -> {', '.join(missing)}")
+            owed.append((key, f"  [{rule.get('id', '?')}] -> {', '.join(missing)}"))
     consulted = [f"{name} ({window:g}h window)" for name in sorted(fresh)]
     return owed, consulted
+
+
+def owed_lines(project: Path, session_id: object) -> tuple[list[str], list[str]]:
+    """(rules still owed this session, seats consulted inside the window)."""
+    owed, consulted = owed_rules(project, session_id)
+    return [line for _, line in owed], consulted
 
 
 def marker_line(project: Path) -> str | None:

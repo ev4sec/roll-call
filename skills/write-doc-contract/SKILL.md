@@ -1,6 +1,8 @@
 ---
 name: write-doc-contract
 description: Turn tests/test_doc_contract.py from a skipped template into a live test that diffs a governing document against the code. Use when setting up roll-call, when /roll-call:doctor reports the doc contract is unfilled, when a document that a gate reads has drifted from reality, or when adding a new section to CLAUDE.md that agents will reason from.
+paths:
+  - "**/test_doc_contract.py"
 ---
 
 # Make a governing document check itself

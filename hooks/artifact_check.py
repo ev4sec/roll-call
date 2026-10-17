@@ -1,8 +1,10 @@
 #!/usr/bin/env python
-"""PostToolUse hook: build the distribution and inspect what is actually in it.
+"""Build the distribution and inspect what is actually in it.
 
-Reads the tool-call JSON on stdin. When packaging configuration changes, builds
-the distribution into a temp directory and asserts things about the real bytes:
+Wired through `post_batch.py`, which fires once after a batch of tool calls
+has resolved; this file can also run on its own as a PostToolUse hook. When
+packaging configuration changes, it builds the distribution into a temp
+directory and asserts things about the real bytes:
 
   1. Nothing on the `forbidden` list is inside: the engine's own machinery
      (`.claude/`, `CLAUDE.md`), git internals, credential-shaped files, local
@@ -111,8 +113,71 @@ def inspect(outdir):
     return problems, checked
 
 
+def repo_if_triggered(path: str) -> str | None:
+    """The buildable repo this edit belongs to, or None if it is no trigger."""
+    if not _engine.get("artifact", "enabled"):
+        return None
+    triggers = {str(t).lower() for t in _engine.get("artifact", "triggers")}
+    if os.path.basename(path).lower() not in triggers:
+        return None
+    repo = _engine.repo_for(path)
+    if not os.path.isfile(os.path.join(repo, "pyproject.toml")):
+        return None
+    try:
+        import importlib.util
+        if importlib.util.find_spec("build") is None:
+            return None  # nothing to do until the build backend is installed
+    except Exception:
+        return None
+    return repo
+
+
+def check_repo(repo: str, edited: str) -> dict | None:
+    """Build `repo` once and inspect the result. `edited` labels the report."""
+    label = _engine.name()
+    outdir = tempfile.mkdtemp(prefix=f"{_engine.slug()}-artifact-")
+    try:
+        built, err = build(repo, outdir)
+        if err:
+            return {
+                "systemMessage": f"{label}: artifact build check could not run.",
+                "hookSpecificOutput": {
+                    "hookEventName": "PostToolUse",
+                    "additionalContext": "Artifact check: " + err,
+                },
+            }
+        problems, checked = inspect(built)
+    finally:
+        shutil.rmtree(outdir, ignore_errors=True)
+
+    if problems:
+        return {
+            "decision": "block",
+            "reason": (
+                "Artifact check FAILED after editing " + edited
+                + ":\n" + "\n".join("  " + p for p in problems)
+                + "\n\nFix this with an allowlist in the build config "
+                  "(only-include), not a denylist: a denylist regresses the "
+                  "next time a file is added. Note that .git/info/exclude is "
+                  "invisible to most build backends, which read only .gitignore."
+            ),
+            "systemMessage": f"{label}: built artifact contains {len(problems)} problem(s).",
+        }
+    if checked:
+        return {"systemMessage": f"{label}: artifact check clean: " + ", ".join(checked)}
+    return None
+
+
+def check(path: str) -> dict | None:
+    """The verdict for one edited path, or None when it is not a trigger."""
+    repo = repo_if_triggered(path)
+    if repo is None:
+        return None
+    return check_repo(repo, os.path.basename(path))
+
+
 def main() -> int:
-    if not _engine.initialized() or not _engine.get("artifact", "enabled"):
+    if not _engine.initialized():
         return 0
 
     try:
@@ -122,57 +187,13 @@ def main() -> int:
 
     ti = data.get("tool_input") or {}
     tr = data.get("tool_response") or {}
+    if not isinstance(tr, dict):
+        tr = {}
     path = (tr.get("filePath") or ti.get("file_path") or "").replace("\\", "/")
 
-    triggers = {str(t).lower() for t in _engine.get("artifact", "triggers")}
-    if os.path.basename(path).lower() not in triggers:
-        return 0
-
-    label = _engine.name()
-    repo = _engine.repo_for(path)
-    if not os.path.isfile(os.path.join(repo, "pyproject.toml")):
-        return 0
-
-    try:
-        import importlib.util
-        if importlib.util.find_spec("build") is None:
-            return 0  # nothing to do until the build backend is installed
-    except Exception:
-        return 0
-
-    outdir = tempfile.mkdtemp(prefix=f"{_engine.slug()}-artifact-")
-    try:
-        built, err = build(repo, outdir)
-        if err:
-            print(json.dumps({
-                "systemMessage": f"{label}: artifact build check could not run.",
-                "hookSpecificOutput": {
-                    "hookEventName": "PostToolUse",
-                    "additionalContext": "Artifact check: " + err,
-                },
-            }))
-            return 0
-        problems, checked = inspect(built)
-    finally:
-        shutil.rmtree(outdir, ignore_errors=True)
-
-    if problems:
-        print(json.dumps({
-            "decision": "block",
-            "reason": (
-                "Artifact check FAILED after editing " + os.path.basename(path)
-                + ":\n" + "\n".join("  " + p for p in problems)
-                + "\n\nFix this with an allowlist in the build config "
-                  "(only-include), not a denylist: a denylist regresses the "
-                  "next time a file is added. Note that .git/info/exclude is "
-                  "invisible to most build backends, which read only .gitignore."
-            ),
-            "systemMessage": f"{label}: built artifact contains {len(problems)} problem(s).",
-        }))
-    elif checked:
-        print(json.dumps({
-            "systemMessage": f"{label}: artifact check clean: " + ", ".join(checked),
-        }))
+    out = check(path)
+    if out:
+        print(json.dumps(out))
     return 0
 
 

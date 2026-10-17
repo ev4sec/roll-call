@@ -9,9 +9,20 @@
 # helpful way: a traceback from a shell, with no indication that a plugin they
 # just installed is the cause.
 #
-# Order of preference: python3, python, py -3. First one that reports 3.11 or
-# newer wins. The version floor is real rather than cosmetic: the hooks read
-# TOML with `tomllib`, which entered the standard library in 3.11.
+# Order of preference: python3, python, py -3. The first one that is 3.11 or
+# newer runs the hook. The version floor is real rather than cosmetic: the hooks
+# read TOML with `tomllib`, which entered the standard library in 3.11.
+#
+# The version check happens inside the interpreter that will run the hook, in
+# `_boot.py`, which then runs the hook in that same process. An earlier version
+# probed the version with one Python process and ran the hook in a second;
+# measured on Windows, that doubled the fixed cost of every hook. `_boot.py`
+# exits 3 when its interpreter is too old, and that code alone means "try the
+# next candidate". Three other codes get the same treatment because they mean
+# the candidate never ran at all: 127 and 126 (not found, not executable) and
+# 9009 (the Windows app-execution alias for `python3`, which exits without
+# running anything). Nothing is read from stdin before the version decision, so
+# the payload is intact for whichever candidate finally runs the hook.
 #
 # When nothing suitable is found this says so once per session per machine,
 # in words, and exits 0. It must never block a tool call. A guard that cannot
@@ -29,12 +40,11 @@ shift
 
 TARGET="$HOOK_DIR/$HOOK_NAME.py"
 [ -f "$TARGET" ] || exit 0
-
-VERSION_PROBE='import sys; sys.exit(0 if sys.version_info >= (3, 11) else 1)'
+BOOT="$HOOK_DIR/_boot.py"
 
 # On Windows the interpreter is almost always `python`, and a `python3` on
 # PATH is usually a placeholder that exits without running anything, so it
-# is probed second there. Everywhere else `python3` is the reliable name.
+# is tried second there. Everywhere else `python3` is the reliable name.
 if [ "${OS:-}" = "Windows_NT" ]; then
     CANDIDATES="python python3"
 else
@@ -43,17 +53,23 @@ fi
 
 for candidate in $CANDIDATES; do
     if command -v "$candidate" >/dev/null 2>&1; then
-        if "$candidate" -c "$VERSION_PROBE" >/dev/null 2>&1; then
-            exec "$candidate" "$TARGET" "$@"
-        fi
+        "$candidate" "$BOOT" "$TARGET" "$@"
+        rc=$?
+        case $rc in
+            3|126|127|9009) ;;
+            *) exit $rc ;;
+        esac
     fi
 done
 
 # Windows launcher, which selects an interpreter rather than being one.
 if command -v py >/dev/null 2>&1; then
-    if py -3 -c "$VERSION_PROBE" >/dev/null 2>&1; then
-        exec py -3 "$TARGET" "$@"
-    fi
+    py -3 "$BOOT" "$TARGET" "$@"
+    rc=$?
+    case $rc in
+        3|126|127|9009) ;;
+        *) exit $rc ;;
+    esac
 fi
 
 # One warning per session per machine, matching the per-session once-flags

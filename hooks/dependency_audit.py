@@ -1,9 +1,11 @@
 #!/usr/bin/env python
-"""PostToolUse hook: audit dependencies whenever a manifest changes.
+"""Audit dependencies whenever a manifest changes.
 
-Reads the tool-call JSON on stdin. When a dependency manifest is edited, runs
-the auditor for that manifest's ecosystem over the declared runtime
-dependencies and reports anything known-vulnerable.
+Wired through `post_batch.py`, which fires once after a batch of tool calls
+has resolved; this file can also run on its own as a PostToolUse hook. When a
+dependency manifest is edited, it runs the auditor for that manifest's
+ecosystem over the declared runtime dependencies and reports anything
+known-vulnerable.
 
 **Why this fires on manifest edits specifically.** Editing a manifest is the
 highest-leverage supply-chain moment there is. It is the one place a single
@@ -181,23 +183,14 @@ def audit_node(repo):
     return (findings[:25], True)
 
 
-def main() -> int:
-    if not _engine.initialized() or not _engine.get("dependencies", "enabled"):
-        return 0
-
-    try:
-        data = json.load(sys.stdin)
-    except Exception:
-        return 0
-
-    ti = data.get("tool_input") or {}
-    tr = data.get("tool_response") or {}
-    path = (tr.get("filePath") or ti.get("file_path") or "").replace("\\", "/")
-
+def check(path: str, session_id: object) -> dict | None:
+    """The verdict for one edited path, or None when it is not a manifest."""
+    if not _engine.get("dependencies", "enabled"):
+        return None
     manifests = {str(m).lower() for m in _engine.get("dependencies", "manifests")}
     basename = os.path.basename(path)
-    if basename.lower() not in manifests:
-        return 0
+    if not basename or basename.lower() not in manifests:
+        return None
 
     label = _engine.name()
     repo = _engine.repo_for(path)
@@ -212,7 +205,7 @@ def main() -> int:
             text = ""
         hit = pattern.search(text)
         if hit:
-            print(json.dumps({
+            return {
                 "decision": "block",
                 "reason": (
                     f"'{hit.group(1)}' is on this project's refused-dependency "
@@ -221,37 +214,34 @@ def main() -> int:
                     f"recorded constraint, not a lint."
                 ),
                 "systemMessage": f"{label}: refused dependency blocked.",
-            }))
-            return 0
+            }
 
     eco = ecosystem(basename)
     if eco == "python":
         deps = python_deps(repo)
         if deps is None:
-            return 0
+            return None
         findings, ran = audit_python(deps)
         clean = f"{label}: {len(deps)} runtime deps audited, no known CVEs."
     elif eco == "node":
         findings, ran = audit_node(repo)
         clean = f"{label}: npm audit found no known CVEs in runtime deps."
     else:
-        return 0
+        return None
 
     if not findings:
-        if ran:
-            print(json.dumps({"systemMessage": clean}))
-        return 0
+        return {"systemMessage": clean} if ran else None
 
     # An unavailable auditor repeats identically on every manifest edit until
     # it is installed. Teach once per session in full, then collapse to one
     # line that still says the CVEs are unchecked: collapsed, not silenced,
     # because "still unchecked" must never look like "audited and clean".
     if (not ran and UNCHECKED in findings[0]
-            and not _engine.session_once(data.get("session_id"), "audit-unavailable")):
+            and not _engine.session_once(session_id, "audit-unavailable")):
         findings = [f"dependency auditor still not installed (full advisory "
                     f"earlier this session); {UNCHECKED}."]
 
-    print(json.dumps({
+    return {
         "systemMessage": f"{label}: dependency audit flagged {len(findings)} item(s).",
         "hookSpecificOutput": {
             "hookEventName": "PostToolUse",
@@ -263,7 +253,27 @@ def main() -> int:
                   "an explicit accepted-risk note."
             ),
         },
-    }))
+    }
+
+
+def main() -> int:
+    if not _engine.initialized():
+        return 0
+
+    try:
+        data = json.load(sys.stdin)
+    except Exception:
+        return 0
+
+    ti = data.get("tool_input") or {}
+    tr = data.get("tool_response") or {}
+    if not isinstance(tr, dict):
+        tr = {}
+    path = (tr.get("filePath") or ti.get("file_path") or "").replace("\\", "/")
+
+    out = check(path, data.get("session_id"))
+    if out:
+        print(json.dumps(out))
     return 0
 
 

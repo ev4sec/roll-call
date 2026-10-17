@@ -16,130 +16,76 @@ So the job is to find guards that are asleep and say so out loud.
 Report only what is wrong or unknown. **A healthy engine gets a short answer.**
 A report that lists twenty passing checks trains the reader to skim it.
 
-## 1. Can the machinery run at all
+## 1. Run the script once
 
 Run `scripts/doctor.py` from `${CLAUDE_PLUGIN_ROOT}` with `python3`, passing
 `--target` as this repository's root. If that spelling is missing or the
 script exits 3 (the interpreter reported itself older than 3.11), try `python`,
-then `py -3`. Keep the output: its first line names the interpreter, and its
-`[drift]`, `[routing]` and `[seats]` blocks are what sections 6 to 8 report.
-Run it once. **Do not probe `--version` separately**; the script reports on
-the interpreter it is running under, which is the only answer that matters.
+then `py -3`. Run it once. **Do not probe `--version` separately**; the script
+reports on the interpreter it is running under, which is the only answer that
+matters.
 
 - If no spelling gets past the version line, that is the headline. Every hook
   is inert. Nothing else matters until it is fixed, so say that first and keep
   the rest brief.
+- If the script exits 2, roll-call was never set up here. Say so and point at
+  `/roll-call:init`.
 
-## 2. Is the project described
+Everything mechanical is in that one output. **Do not redo any of it by hand**:
+do not Glob the routing globs, do not Grep for placeholders, and do not Read
+`.claude/.consults`, `.claude/.route-stats`, or `.claude/.pending-findings`.
+They are machine files, and the script exists so their contents never need to
+enter anyone's context. Your job is to read the blocks and say what they mean
+for this project.
 
-- Does `.claude/engine.toml` exist and parse?
-- Does `source_root` point at a directory that exists?
-- Does the configured test command actually run here?
-- Flag keys that look like leftovers from the template rather than this project.
+## 2. What each block is telling you
 
-## 3. Is the routing table alive
+**`[config]`** is whether the project is described. A template value still in
+`engine.toml`, a source root or test directory that does not exist, a runner
+not on PATH: each one is a hook watching nothing. Name the fix.
 
-This is the most valuable section. For each rule in `.claude/routing.toml`:
+**`[rules]`** is the most valuable block. A rule that matches no file is a seat
+nobody will ever be sent to. A rule naming a seat with no file blocks on a
+consult that cannot happen. A rule matching a large share of the tree will be
+muted and take the credible rules with it. An exclude that leaves real files
+covered by nothing is a hole wearing a boundary's name. A seat no rule names is
+decoration. If every rule is still `advised` long after init, say so once,
+without nagging; the posture line already does.
 
-- **Dead rule.** Do its globs match any file in the repository? A rule matching
-  nothing is a seat nobody will ever be sent to. And can the router actually
-  reach what they match: doc and lockfile edits (.md, .txt, .lock) are dropped
-  before matching unless a rule names the exact file, so a glob over those
-  suffixes matches files and still never fires. Section 7's report checks
-  this mechanically; a rule can be alive here and dead there, and dead wins.
-- **Phantom seat.** Does every agent it names exist in `.claude/agents/`? A rule
-  naming a missing agent blocks on a consult that cannot happen.
-- **Overbroad rule.** Does it match a very large share of the tree? Say so.
-  A rule that fires on everything gets muted, and it takes the credible rules
-  with it.
-- **Orphaned carve-out.** For each rule with an `exclude`, does every excluded
-  path that actually exists in the tree still match some other rule's paths?
-  An exclude that leaves a real file covered by nothing is a hole wearing a
-  boundary's name.
-- **Posture.** How many rules are `advised` versus `required`? If everything is
-  still `advised` long after init, the engine is advising and enforcing nothing.
-  Mention it once, without nagging.
+**`[placeholders]`** is what the engine still does not know. Weight them: a
+missing `{{SCALE_NUMBER}}` costs one agent some precision, while an unfilled
+vision or agent definition means a seat is ruling from a blank record, which
+is worse than not asking it. The block marks those. If it reports the
+refusals test unfilled, that test is red on purpose and the test hook reports
+it rather than blocking; a suite that is green **including** that test has
+been made green by deleting a guard, and that is worth saying plainly.
 
-## 4. What the engine still does not know
+**`[ledgers]`** is whether the guards are firing. An empty consult ledger in
+an active repository means agents are not being consulted at all, which the
+router can only report on, never cause. Consult entries that name no seat are
+runs that credit no rule. A findings ledger with no verdicts is a roster with
+no track record.
 
-Count and locate the remaining `{{...}}` placeholders across `.claude/` and
-`CLAUDE.md`.
+**`[drift]`** compares the machinery prose against the shipped templates after
+re-applying init's substitutions. roll-call never rewrites files in a
+repository, so a template that moved ahead is reported, not applied. Name the
+file and summarize from the script's line. **Do not offer to overwrite
+anything**, and read a template and local pair side by side only when the user
+asks about a named drift. Config and the living record documents are not
+compared; their divergence is the install working.
 
-Weight them. A missing `{{SCALE_NUMBER}}` costs one agent some precision. An
-unfilled vision or constraints section means `scope-validator` and
-`approval-judge` are ruling from a blank record, which is worse than not asking
-them. Name the ones that disable a seat.
+**`[routing]`** is what the routing is costing: a required rule fired at and
+ignored, or a document growing in one of the expensive read paths. A rule
+being ignored is the script's finding to make, not an impression to form by
+scrolling a ledger.
 
-Check `tests/test_permanent_refusals.py`. If it still holds template content, it
-is failing on purpose and should be. A suite that is green **including** that
-test has been made green by deleting a guard, and that is worth saying plainly.
+**`[seats]`** is the roster's track record: a seat whose reproduced claims
+keep failing, a seat whose claims are mostly acted on unverified, and the
+claims still waiting for a verdict. A waiting claim is a reproduction task for
+the reconcile-board skill, not a doctor finding; here, only say how many there
+are and how long the oldest has waited.
 
-## 5. Are the guards actually firing
-
-- Does `.claude/.consults` exist and have recent entries? An empty ledger in an
-  active repository means agents are not being consulted at all, which the
-  router can only report on, never cause.
-- Is `.claude/agent-findings.md` growing? A permanent record with no entries is
-  a roster nobody is using.
-- Does `.claude/.pending-findings` hold rows? Each one is a claim a seat made
-  that the hook recorded and nobody has judged yet. Section 8's report counts
-  them; here, only check that the file is in `.claude/.gitignore`. An install
-  from before 0.3.0 will not list it, and the queue will show up as an
-  untracked file until the line `.pending-findings` is added.
-- Does `.claude/scan-rules.toml` exist? Optional, but its absence means the
-  security scan is running its generic baseline only.
-
-## 6. Template drift
-
-roll-call deliberately never rewrites files in a repository, so improvements to
-the shipped templates do not reach an existing install.
-
-Report the `[drift]` block from section 1's run. It re-applies the
-substitutions init performed and the note-stripping, then diffs each shipped
-template against the local copy inside the script, so the comparison costs the
-same whether the documents total two hundred words or twenty thousand. **Do not
-Read template and local pairs side by side**; that was the old procedure and it
-pulled 30k+ words into context on a full install, landing on exactly the
-sessions already in trouble. Read a specific pair only when the user asks about
-a named drift.
-
-Where a template has moved ahead, name the file and summarize from the
-script's line. **Do not offer to overwrite anything.** Describe the difference
-and let the user decide, because the local copy is the one they tuned and that
-is the whole reason it is theirs. The script compares only the machinery
-prose (procedure, brief, traps, seats, project-side tests): the root
-`CLAUDE.md` is a merged file, `engine.toml` and `routing.toml` are rewritten
-by init on purpose, and the living record documents diverge because they are
-being used. None of those is drift; review them by hand only on request.
-
-## 7. What the routing is costing
-
-Report the `[routing]` block from section 1's run verbatim. It aggregates the
-hook-written fire-rate ledger against the consult ledger and the routing table,
-and it prints only what crosses a threshold: a required rule being fired at and
-ignored, or a document growing in one of the expensive read paths. A healthy
-table gets one line.
-
-**Do not Read `.claude/.route-stats` or `.claude/.consults` yourself.** They
-are machine files, and the script exists precisely so their contents never
-need to enter anyone's context. A rule being ignored is the script's finding
-to make, not an impression to form by scrolling a ledger.
-
-## 8. What the roster's track record says
-
-Report the `[seats]` block from section 1's run verbatim. It tallies the
-verdict column of `agent-findings.md` per seat and counts the rows still
-waiting in `.claude/.pending-findings`. It prints only what crosses a
-threshold: a seat whose reproduced claims are refuted often, a seat whose
-claims are mostly acted on unverified, and a queue that is growing or has gone
-stale. A healthy roster gets one line.
-
-**Do not Read the queue yourself here.** A claim waiting for a verdict is a
-reproduction task, not a doctor finding; the reconcile-board skill is where
-those rows get worked. This section only says how many there are and how
-long the oldest has waited.
-
-## Output
+## 3. Output
 
 Group by severity:
 

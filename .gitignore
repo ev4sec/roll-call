@@ -11,3 +11,9 @@ _working/
 
 # This repo runs the plugin on itself; its session ledgers must never ship.
 .claude/
+
+# Browser automation state left by the Playwright plugin during review sessions.
+.playwright-mcp/
+
+# Eval runs write their reports here.
+evals/results/

@@ -1,5 +1,53 @@
 # Changelog
 
+## 0.6.0 (2026-10-17)
+
+Faster edits, a gentler first week, and a doctor that does its own counting.
+Nothing here touches the files under your `.claude/`; it all arrives with
+`/plugin update roll-call`.
+
+- **Tests, audits, and builds run once per batch of edits.** They used to run
+  once per edit, so four files written in parallel started four full suite
+  runs. They now run after the batch resolves, against the finished tree.
+  Single edits are checked exactly as before. The router and the security
+  scan stay per-edit.
+- **The unfilled refusals test no longer blocks every edit.** It still fails
+  on purpose until you fill it in, and doctor still says so, but the test
+  hook now reports that one failure once per session instead of stopping each
+  source edit after init. Any other failure blocks as before.
+- **Hooks start faster.** Every hook used to pay for two interpreter
+  startups, one to check the version and one to run. The interpreter now
+  checks itself and runs the hook in the same process. Measured on Windows
+  at about 40 percent less fixed cost per hook, five hooks per edit.
+- **Doctor checks the routing table itself.** Dead rules, seats no file
+  defines, rules broad enough to be muted, excludes that leave a hole, seats
+  no rule routes to, the placeholders still waiting per file, and whether the
+  ledgers are being written: all now come from `scripts/health.py` in the one
+  script call. The command reads the report instead of redoing the checks by
+  hand.
+- **The turn-end reminder is said once.** Context from a Stop hook is
+  answered as feedback, so the reminder added in 0.4.0 made a session restate
+  the same declared skip at every turn end, up to the harness cap. Each owed
+  consult is now named at one turn end per session; the router still refuses
+  every further edit, and the rebrief still restates the debt after a
+  compaction. Found by the new eval suite on its first run.
+- **The turn-end reminder reads the tree.** The router only sees edits made
+  through the editor tools. At the end of a turn, roll-call now also matches
+  files changed by any other means against the routing table and names a
+  required consult the router never saw, once per session.
+- **Skills load where they apply.** The routing-rule skill loads when you
+  work on `routing.toml`, the board skill when you work on `slice.md`, and
+  the doc-contract skill when you touch its test.
+- **Roster-gap walks run in their own context.** `find-roster-gap` reads
+  the board, the roadmap, the ledger, and the git log; that reading now
+  happens in a forked context and only the table comes back.
+- **An eval suite checks the model-facing promises.** `evals/` holds three
+  cases for `claude plugin eval`: a routed edit summons the owning seat,
+  init leaves an existing `CLAUDE.md` alone, and `seat` parks a topic-shaped
+  proposal. The validation harness grows to 48 checks.
+- The publish guard reads the project root through the shared loader, which
+  removes one standing warning from the directory scan.
+
 ## 0.5.0 (2026-10-04)
 
 - **New skill: `find-roster-gap`.** `/seat` judges a proposal but cannot

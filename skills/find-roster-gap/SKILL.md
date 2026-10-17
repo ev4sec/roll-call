@@ -1,6 +1,8 @@
 ---
 name: find-roster-gap
 description: Walk the work that is coming and find what no seat on the roster owns, then hand each real gap to /roll-call:seat as a one-sentence standard of evidence. Use at a slice boundary, before a roadmap or planning conversation, when a new kind of work is about to start, when a seat keeps answering questions outside its own standard, or when someone asks whether the roster is missing someone. Not for judging an agent someone has already proposed; that is /roll-call:seat on its own.
+context: fork
+background: false
 ---
 
 # Find the seat nobody has proposed
@@ -69,15 +71,17 @@ would produce** on it. Then sort it:
 
 ## Hand off
 
-For each unowned item whose sentence holds, run `/roll-call:seat` with the
-sentence as the argument, one gap per run. Give `/seat` the work item and the
-seats you tested, then let it rule. It reads the parked register and tests the
-sentence against every seat again, and it may well say no. That is the gate
-working, not this skill failing.
+This walk runs in its own context, so the reading stays out of the session
+that asked. Do not run `/roll-call:seat` from here. For each unowned item
+whose sentence holds, return the sentence, the work item, and the seats you
+tested; the invoking session runs `/roll-call:seat` with the sentence as the
+argument, one gap per run, and lets it rule. It reads the parked register and
+tests the sentence against every seat again, and it may well say no. That is
+the gate working, not this skill failing.
 
 ## Deliver
 
 A short table: item, owning seat or "unowned", and the evidence that seat would
-produce. Under it, the stretch edits you recommend and the gaps handed to
-`/seat`. If every item is owned, one line saying the roster covers the work
-ahead, and nothing else.
+produce. Under it, the stretch edits you recommend and, for each gap, the one
+sentence ready to hand to `/seat`. If every item is owned, one line saying the
+roster covers the work ahead, and nothing else.

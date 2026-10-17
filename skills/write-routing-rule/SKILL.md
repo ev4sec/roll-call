@@ -1,6 +1,8 @@
 ---
 name: write-routing-rule
 description: Write or revise a rule in .claude/routing.toml so it fires when it should and stays silent otherwise. Use when adding a rule, when a rule is firing too often or never firing, when promoting a rule from advised to required, or when /roll-call:doctor reports a dead or overbroad rule.
+paths:
+  - ".claude/routing.toml"
 ---
 
 # Write a routing rule that survives a busy week

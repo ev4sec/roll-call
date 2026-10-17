@@ -190,6 +190,10 @@ def scenario_the_consult_block(tmp: Path) -> None:
                  project, env)
     check("turn end: an owed consult is named when the turn ends",
           "[data-model] -> systems-architect" in ended.stdout, ended.stdout[:160])
+    repeated = fire("turn_end", {"hook_event_name": "Stop", "session_id": "validate-1"},
+                    project, env)
+    check("turn end: the reminder is not repeated at the next turn end",
+          not repeated.stdout.strip(), repeated.stdout[:160])
 
     # Now record a consult the way agent_watch does, at SubagentStop, and
     # confirm it clears.
@@ -326,6 +330,75 @@ def scenario_plugin_update(tmp: Path) -> None:
           "fresh_hours = 48" in routing.read_text(encoding="utf-8"))
 
 
+def scenario_batch_checks(tmp: Path) -> None:
+    """The expensive checks run once per batch, through the real shim."""
+    project = tmp / "batched"
+    (project / "src").mkdir(parents=True)
+    (project / "tests").mkdir()
+    (project / "pyproject.toml").write_text("[project]\nname='b'\nversion='0'\n", encoding="utf-8")
+    counter = ("import pathlib; p = pathlib.Path('runs.txt'); "
+               "n = int(p.read_text()) if p.exists() else 0; p.write_text(str(n + 1))")
+    (project / ".claude").mkdir()
+    (project / ".claude" / "engine.toml").write_text(
+        '[project]\nname = "Batched"\nsource_root = "src"\n\n'
+        f'[tests]\ndir = "tests"\ncommand = ["-c", {counter!r}]\nroot_marker = "pyproject.toml"\n\n'
+        '[dependencies]\nenabled = false\n\n[artifact]\nenabled = false\n\n[scan]\nenabled = false\n',
+        encoding="utf-8")
+    for name in ("a.py", "b.py", "c.py"):
+        (project / "src" / name).write_text("x = 1\n", encoding="utf-8")
+    batch = {"hook_event_name": "PostToolBatch", "session_id": "validate-2",
+             "tool_calls": [{"tool_name": "Edit", "tool_use_id": f"t{i}",
+                             "tool_input": {"file_path": str(project / "src" / name)},
+                             "tool_response": "serialized"}
+                            for i, name in enumerate(("a.py", "b.py", "c.py"))]}
+    green = fire("post_batch", batch, project)
+    runs = project / "runs.txt"
+    check("batch: three edits run the suite once",
+          runs.is_file() and runs.read_text() == "1",
+          runs.read_text() if runs.is_file() else "no run")
+    check("batch: a green suite is silent", not green.stdout.strip(), green.stdout[:160])
+
+    failing = counter + "; raise SystemExit('FAILED tests/test_x.py::test_y - boom')"
+    config = project / ".claude" / "engine.toml"
+    config.write_text(config.read_text(encoding="utf-8").replace(repr(counter), repr(failing)),
+                      encoding="utf-8")
+    red = fire("post_batch", batch, project)
+    out = json.loads(red.stdout) if red.stdout.strip() else {}
+    extra = (out.get("hookSpecificOutput") or {}).get("additionalContext", "")
+    check("batch: a red suite reaches the session as context under its own event",
+          "Tests FAILED" in extra
+          and (out.get("hookSpecificOutput") or {}).get("hookEventName") == "PostToolBatch"
+          and "decision" not in out,
+          red.stdout[:200])
+
+
+def scenario_tree_state(tmp: Path) -> None:
+    """A routed file changed by a shell command is named when the turn ends."""
+    project = tmp / "treed"
+    (project / "src").mkdir(parents=True)
+    target = project / "src" / "models.py"
+    target.write_text("x = 1\n", encoding="utf-8")
+    scaffold(project)
+    (project / ".claude" / "routing.toml").write_text(
+        '[settings]\nfresh_hours = 24\n\n[[rule]]\nid = "data-model"\n'
+        'paths = ["src/models.py"]\nagents = ["systems-architect"]\n'
+        'level = "required"\nquestion = "q"\nwhy = "w"\n', encoding="utf-8")
+    git(project, "init", "-q")
+    git(project, "-c", "user.name=v", "-c", "user.email=v@example.com", "add", "-A")
+    git(project, "-c", "user.name=v", "-c", "user.email=v@example.com",
+        "commit", "-q", "-m", "base")
+    target.write_text("x = 2\n", encoding="utf-8")  # a shell edit, not an editor write
+    env = {"CLAUDE_PLUGIN_DATA": str(tmp / "plugin-data")}
+    ended = fire("turn_end", {"hook_event_name": "Stop", "session_id": "validate-3"},
+                 project, env)
+    check("tree: a shell-made change to a routed file is named at turn end",
+          "[data-model] -> systems-architect (src/models.py)" in ended.stdout,
+          ended.stdout[:200])
+    again = fire("turn_end", {"hook_event_name": "Stop", "session_id": "validate-3"},
+                 project, env)
+    check("tree: it is named once per session", not again.stdout.strip(), again.stdout[:120])
+
+
 def scenario_project_suite(tmp: Path) -> None:
     """The suite init installs must run, and must fail in exactly one place."""
     project = tmp / "suite"
@@ -361,6 +434,7 @@ def main() -> int:
                    scenario_existing_files, scenario_onboarding,
                    scenario_the_consult_block, scenario_advisory_posture,
                    scenario_publish_guard, scenario_plugin_update,
+                   scenario_batch_checks, scenario_tree_state,
                    scenario_project_suite):
             try:
                 fn(tmp)

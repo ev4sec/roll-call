@@ -49,7 +49,8 @@ Report what you detected, then say plainly: this writes about 30 files into
 `.claude/`, `CLAUDE.md`, and the test directory, and they will appear as
 uncommitted changes. One of them, `test_permanent_refusals.py`, fails until
 its refusal list is filled in, so a suite run right after init is expected to
-show one failure by design.
+show one failure by design. The test hook reports that one failure once per
+session rather than blocking on it; any other failure still blocks.
 
 Wait for confirmation. This is their repository.
 
@@ -120,7 +121,7 @@ Keep it short. Four parts:
    and that `/roll-call:doctor` lists them. Name the two or three that matter
    most rather than all of them. Say that `test_permanent_refusals.py` fails
    on purpose until its list is filled, so the first red test run is expected
-   and not a defect.
+   and not a defect, and that the test hook reports it without blocking.
 4. **One file to edit.** Name an actual file covered by a rule you just wrote,
    and tell them that editing it will summon the owning agent with its question.
 

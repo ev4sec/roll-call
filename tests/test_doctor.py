@@ -107,3 +107,16 @@ def test_scaffold_refuses_an_old_interpreter(
     assert code == 3
     assert "older than 99.0" in capsys.readouterr().out
     assert not (tmp_path / ".claude").exists()
+
+
+def test_the_mechanical_checklist_blocks_are_reported(installed: Path) -> None:
+    """The checks the command once asked the model to do by hand."""
+    proc = subprocess.run(  # noqa: S603
+        [sys.executable, str(DOCTOR), "--target", str(installed)],
+        capture_output=True, text=True, timeout=60,
+    )
+    assert proc.returncode == 0, proc.stderr
+    for block in ("[config]", "[rules]", "[placeholders]", "[ledgers]"):
+        assert block in proc.stdout, proc.stdout
+    assert "matches no file in the tree" in proc.stdout
+    assert "placeholder(s) still need judgment" in proc.stdout
