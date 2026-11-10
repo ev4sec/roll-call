@@ -42,26 +42,15 @@ from __future__ import annotations
 
 import hashlib
 import json
-import os
 import sys
 from pathlib import Path
+
+import _engine
 
 CONFIG = ".claude/engine.toml"
 ROUTING = ".claude/routing.toml"
 AGENTS = ".claude/agents"
 IGNORE = ".claude/.roll-call-ignore"
-
-
-def project_dir() -> Path:
-    """The repository root.
-
-    `CLAUDE_PROJECT_DIR` is set by the harness. Unlike the other hooks there is
-    no useful fallback here: this file lives in the plugin cache, so walking up
-    from `__file__` finds the plugin, never the project. Absent the variable the
-    honest answer is to say nothing.
-    """
-    env = os.environ.get("CLAUDE_PROJECT_DIR")
-    return Path(env) if env else Path()
 
 
 def already_offered(project: Path) -> bool:
@@ -70,14 +59,14 @@ def already_offered(project: Path) -> bool:
     Keyed by a hash of the resolved path rather than the path itself, so the
     record does not become a readable list of every repository on the machine.
     """
-    data = os.environ.get("CLAUDE_PLUGIN_DATA")
-    if not data:
+    data = _engine.plugin_data_dir()
+    if data is None:
         # No durable store. Speak anyway: being told twice is a smaller failure
         # than never being told, and `.roll-call-ignore` is the escape hatch.
         return False
     digest = hashlib.sha256(str(project.resolve()).encode("utf-8"))
     key = digest.hexdigest()[:16]
-    stamp = Path(data) / "offered" / key
+    stamp = data / "offered" / key
     if stamp.exists():
         return True
     try:
@@ -88,27 +77,24 @@ def already_offered(project: Path) -> bool:
     return False
 
 
-def say(message: str) -> int:
-    json.dump({"systemMessage": message}, sys.stdout)
-    return 0
+def notice() -> str | None:
+    """What to tell the user at startup, or None for silence.
 
-
-def main() -> int:
-    try:
-        json.load(sys.stdin)
-    except (json.JSONDecodeError, ValueError):
-        return 0
-
-    project = project_dir()
-    if not os.environ.get("CLAUDE_PROJECT_DIR"):
-        return 0
+    There is no useful fallback for the repository root here: this file lives
+    in the plugin cache, so walking up from `__file__` finds the plugin, never
+    the project. Without the harness naming the project the honest answer is
+    to say nothing.
+    """
+    if not _engine.have_project_dir():
+        return None
+    project = _engine.project_dir()
     if (project / IGNORE).exists():
-        return 0
+        return None
 
     if not (project / CONFIG).exists():
         if already_offered(project):
-            return 0
-        return say(
+            return None
+        return (
             "roll-call is installed but not set up in this project. "
             "Run /roll-call:init to describe the repository to the engine and "
             "write the roster into .claude/. Nothing happens until you do. "
@@ -121,13 +107,24 @@ def main() -> int:
         # Plural agreement matters here: this text is read by a person who is
         # already confused about why their setup is half-built.
         verb = "is" if len(missing) == 1 else "are"
-        return say(
+        return (
             "roll-call is configured here but incomplete: "
             + ", ".join(missing)
             + f" {verb} missing. The consult router cannot route without it. "
             "Run /roll-call:doctor."
         )
+    return None
 
+
+def main() -> int:
+    try:
+        json.load(sys.stdin)
+    except (json.JSONDecodeError, ValueError):
+        return 0
+
+    message = notice()
+    if message:
+        json.dump({"systemMessage": message}, sys.stdout)
     return 0
 
 

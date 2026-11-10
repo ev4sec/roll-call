@@ -59,12 +59,6 @@ GH_WORD = re.compile(r"(?<![\w./-])gh(?:\.exe)?(?![\w.-])", re.IGNORECASE)
 #: trailing lookahead rejects a following `-`.
 GIT_DASHED_PUSH = re.compile(r"(?<![\w./-])git-push(?![\w.-])", re.IGNORECASE)
 
-#: Global options accepted *before* a git subcommand that consume the next token.
-#: `--opt=value` forms need no entry; they are one token and are skipped as flags.
-GIT_GLOBAL_VALUE_FLAGS = frozenset(
-    {"-C", "-c", "--exec-path", "--git-dir", "--work-tree", "--namespace", "--config-env"}
-)
-
 #: Subcommands whose *second* word being `push` still means a push to a remote.
 #: `git subtree push --prefix=d origin gh-pages` genuinely publishes.
 GIT_PUSH_SUBSUBCOMMANDS = frozenset({"subtree"})
@@ -209,24 +203,14 @@ def push_tail(after_git: str) -> str | None:
     prompt as a publish. Returns `""` for a bare `git push`, which is
     meaningful: no remote was named and the caller must resolve the upstream.
     """
-    tokens = after_git.split()
-    index = 0
-    while index < len(tokens):
-        token = tokens[index]
-        if not token.startswith("-"):
-            break
-        # `-C /tmp` and friends swallow the next token; `--git-dir=x` does not.
-        if token in GIT_GLOBAL_VALUE_FLAGS:
-            index += 1
-        index += 1
-    if index >= len(tokens):
+    parsed = _engine.git_subcommand(after_git)
+    if parsed is None:
         return None
-
-    subcommand = tokens[index]
+    subcommand, rest = parsed
     if subcommand == "push":
-        return " ".join(tokens[index + 1:])
-    if subcommand in GIT_PUSH_SUBSUBCOMMANDS and "push" in tokens[index + 1:]:
-        return " ".join(tokens[index + 1:])
+        return " ".join(rest)
+    if subcommand in GIT_PUSH_SUBSUBCOMMANDS and "push" in rest:
+        return " ".join(rest)
     return None
 
 
@@ -283,44 +267,59 @@ def ask(reason: str) -> int:
     return 0
 
 
-def main() -> int:
+def reason_for(raw: object) -> str | None:
+    """Why this tool call needs a confirmation, or None when it does not.
+
+    Takes the payload as the text the harness sent, not as a parsed object,
+    because an unparseable payload is itself a reason to ask. `pre_shell.py`
+    calls this; `main()` below is the same thing run on its own.
+    """
     # The gate belongs only to repositories that were set up for it.
     if not _engine.initialized():
-        return 0
+        return None
 
     label = _engine.name()
 
     # Fail CLOSED. For a confirmation gate, unknown state must mean "ask", not
-    # "proceed". An error that silently returned 0 would let a publish through
-    # unprompted, which is the exact outcome the gate exists to prevent.
+    # "proceed". An error that silently returned nothing would let a publish
+    # through unprompted, which is the exact outcome the gate exists to prevent.
     try:
-        data = json.load(sys.stdin)
+        data = json.loads(raw)  # type: ignore[arg-type]
         ti = data.get("tool_input") or {}
         cmd = ti.get("command") or ""
         cwd = data.get("cwd") or (
             str(_engine.project_dir()) if _engine.have_project_dir() else None
         )
     except Exception:
-        return ask(
+        return (
             f"{label} policy: could not parse the tool call to check whether it "
             f"publishes. Confirm this is safe to run."
         )
 
     if not isinstance(cmd, str):
-        return ask(f"{label} policy: unrecognized command shape; confirm before running.")
+        return f"{label} policy: unrecognized command shape; confirm before running."
     if not cmd.strip():
-        return 0
+        return None
 
     what = classify(cmd, cwd if isinstance(cwd, str) else None)
     if what:
-        return ask(
+        return (
             f"{label} policy: this looks like {what}. Publication needs the "
             f"maintainer's go-ahead, and a short review brief should accompany "
             f"it: what is going out and why, its risk and reversibility, and "
             f"what was verified. (Local commits are not gated, and neither are "
             f"pushes to ungated remotes.)"
         )
-    return 0
+    return None
+
+
+def main() -> int:
+    try:
+        raw: object = sys.stdin.read()
+    except Exception:
+        raw = None
+    reason = reason_for(raw)
+    return ask(reason) if reason else 0
 
 
 if __name__ == "__main__":

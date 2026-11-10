@@ -39,7 +39,6 @@ NEVER_GRANTED = {"WebFetch", "WebSearch", "Write", "Edit", "Bash", "Bash(*)"}
 ENVIRONMENT_READERS = {
     "hooks/_engine.py",
     "hooks/consult_router.py",
-    "hooks/session_start.py",
     "scripts/drift.py",
     "scripts/route_stats.py",
     "scripts/scaffold.py",

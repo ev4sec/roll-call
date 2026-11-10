@@ -25,6 +25,9 @@ suppressed with a trailing `<slug>: allow <check-id> - <reason>` comment on the
 offending line, so every exception is deliberate and greppable.
 
 If `bandit` is installed it runs on Python files as an additional WARN source.
+The pattern scan answers on every edit, through `post_edit.py`; bandit runs
+once per batch of edits, through `post_batch.py`, because starting it costs
+several times what the pattern scan does.
 """
 
 import io
@@ -258,64 +261,129 @@ def scan_text(text, checks, is_python=False, relaxed=frozenset()):
     return findings
 
 
-def run_bandit(path, is_test=False):
-    if not shutil.which("bandit"):
+def is_test_file(path):
+    """Whether a forward-slash path is a test, by the project's own layout."""
+    test_dir = str(_engine.get("tests", "dir")).strip("/")
+    return (
+        "/tests/" in path
+        or (bool(test_dir) and f"/{test_dir}/" in path)
+        or os.path.basename(path).startswith("test_")
+    )
+
+
+def skipped(path):
+    """Whether a forward-slash path sits in a directory never worth scanning."""
+    probe = "/" + path.strip("/") + "/"
+    return any(skip in probe for skip in SKIP_DIRS)
+
+
+def bandit_lines(paths, is_test=False, template="L{line}: [{test_id}] {msg} ({severity})"):
+    """One line per bandit finding across `paths`, or [] when it has none."""
+    if not paths or not shutil.which("bandit"):
         return []
-    cmd = ["bandit", "-q", "-f", "custom",
-           "--msg-template", "L{line}: [{test_id}] {msg} ({severity})"]
+    cmd = ["bandit", "-q", "-f", "custom", "--msg-template", template]
     if is_test:
         # B101 is "assert used", which is what a test is. Without this, every
         # test file reports a wall of noise that trains you to ignore the
         # scanner.
         cmd += ["-s", "B101"]
+    # Run from the repository root where the harness named one, so the paths
+    # bandit prints are the short repo-relative ones.
+    cwd = str(_engine.project_dir()) if _engine.have_project_dir() else None
     try:
-        proc = subprocess.run(cmd + [path], capture_output=True, text=True, timeout=30)
-        return [(WARN, "bandit", 0, ln.strip())
-                for ln in (proc.stdout or "").splitlines() if ln.strip()]
+        proc = subprocess.run(cmd + list(paths), capture_output=True, text=True,
+                              timeout=30 if len(paths) == 1 else 90, cwd=cwd)
+        return [ln.strip() for ln in (proc.stdout or "").splitlines() if ln.strip()]
     except Exception:
         return []
 
 
-def main() -> int:
-    if not _engine.initialized() or not _engine.get("scan", "enabled"):
-        return 0
+def run_bandit(path, is_test=False):
+    return [(WARN, "bandit", 0, ln) for ln in bandit_lines([path], is_test=is_test)]
 
-    try:
-        data = json.load(sys.stdin)
-    except Exception:
-        return 0
+
+def bandit_batch(paths):
+    """Bandit over every Python file a batch of edits wrote, in one launch.
+
+    The pattern scan above answers on each edit because it is instant. Bandit
+    costs a process start several times the price of everything else this
+    plugin does per edit, so it runs once after the batch resolves, through
+    `post_batch.py`, over the finished files. Its findings are advice, as
+    they always were. Test files go in their own launch because the assert
+    check is switched off for them and nowhere else.
+
+    Returns the harness JSON to print, or None when there is nothing to say.
+    """
+    if not _engine.get("scan", "enabled"):
+        return None
+    product, tests = [], []
+    for raw in paths:
+        path = raw.replace("\\", "/")
+        if not path.endswith(".py") or skipped(path) or not os.path.isfile(raw):
+            continue
+        (tests if is_test_file(path) else product).append(raw)
+    template = "{relpath} L{line}: [{test_id}] {msg} ({severity})"
+    lines = (bandit_lines(product, template=template)
+             + bandit_lines(tests, is_test=True, template=template))
+    if not lines:
+        return None
+    label = _engine.name()
+    return {
+        "systemMessage": "{} security scan: bandit flagged {} item(s).".format(
+            label, len(lines)),
+        "hookSpecificOutput": {
+            "hookEventName": "PostToolUse",
+            "additionalContext": (
+                "{} security scan (bandit) on the files just edited:\n{}".format(
+                    label, "\n".join("  WARN " + ln for ln in lines))
+            ),
+        },
+    }
+
+
+def check(data, with_bandit=False):
+    """The verdict for one edit: the harness JSON to print, or None.
+
+    `post_edit.py` calls this for the pattern scan alone and leaves bandit to
+    the batch. Run on its own, this file still does both.
+    """
+    if not _engine.initialized() or not _engine.get("scan", "enabled"):
+        return None
+    if not isinstance(data, dict):
+        return None
 
     ti = data.get("tool_input") or {}
     tr = data.get("tool_response") or {}
+    if not isinstance(tr, dict):
+        tr = {}
     raw = tr.get("filePath") or ti.get("file_path") or ""
     path = raw.replace("\\", "/")
 
     if not path or not os.path.isfile(raw):
-        return 0
-    probe = "/" + path.strip("/") + "/"
-    if any(skip in probe for skip in SKIP_DIRS):
-        return 0
+        return None
+    if skipped(path):
+        return None
 
     checks = table_for(path)
     if not checks:
-        return 0
+        return None
 
     try:
         with open(raw, "r", encoding="utf-8", errors="replace") as fh:
             text = fh.read()
     except Exception:
-        return 0
+        return None
 
     is_py = path.endswith(".py")
-    is_test = "/tests/" in path or os.path.basename(path).startswith("test_")
+    is_test = is_test_file(path)
     findings = scan_text(
         text, checks, is_python=is_py, relaxed=TEST_RELAXED if is_test else frozenset(),
     )
-    if is_py:
+    if is_py and with_bandit:
         findings += run_bandit(raw, is_test=is_test)
 
     if not findings:
-        return 0
+        return None
 
     label = _engine.name()
     blocking = [f for f in findings if f[0] == BLOCK]
@@ -328,21 +396,30 @@ def main() -> int:
 
     name = os.path.basename(path)
     if blocking:
-        print(json.dumps({
+        return {
             "decision": "block",
             "reason": detail,
             "systemMessage": "{} security scan: {} blocking issue(s) in {}".format(
                 label, len(blocking), name),
-        }))
-    else:
-        print(json.dumps({
-            "systemMessage": "{} security scan flagged {} item(s) in {}".format(
-                label, len(findings), name),
-            "hookSpecificOutput": {
-                "hookEventName": "PostToolUse",
-                "additionalContext": detail,
-            },
-        }))
+        }
+    return {
+        "systemMessage": "{} security scan flagged {} item(s) in {}".format(
+            label, len(findings), name),
+        "hookSpecificOutput": {
+            "hookEventName": "PostToolUse",
+            "additionalContext": detail,
+        },
+    }
+
+
+def main() -> int:
+    try:
+        data = json.load(sys.stdin)
+    except Exception:
+        return 0
+    out = check(data, with_bandit=True)
+    if out:
+        print(json.dumps(out))
     return 0
 
 

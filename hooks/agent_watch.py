@@ -94,7 +94,13 @@ def main() -> int:
         payload = json.load(sys.stdin)
     except (json.JSONDecodeError, ValueError):
         return 0
+    if not isinstance(payload, dict):
+        return 0
+    return run(payload)
 
+
+def run(payload: dict) -> int:
+    """Write the marker and the ledger for one finished agent."""
     if not _engine.initialized():
         return 0
 

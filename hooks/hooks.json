@@ -3,23 +3,12 @@
   "hooks": {
     "SessionStart": [
       {
-        "matcher": "startup",
         "hooks": [
           {
             "type": "command",
-            "command": "sh \"${CLAUDE_PLUGIN_ROOT}/hooks/run.sh\" session_start",
+            "command": "sh \"${CLAUDE_PLUGIN_ROOT}/hooks/run.sh\" session_open",
             "timeout": 10,
-            "statusMessage": "Checking roll-call setup"
-          }
-        ]
-      },
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "sh \"${CLAUDE_PLUGIN_ROOT}/hooks/run.sh\" session_rebrief",
-            "timeout": 10,
-            "statusMessage": "Reading the engine's ledgers back"
+            "statusMessage": "Checking roll-call setup and ledgers"
           }
         ]
       }
@@ -30,15 +19,9 @@
         "hooks": [
           {
             "type": "command",
-            "command": "sh \"${CLAUDE_PLUGIN_ROOT}/hooks/run.sh\" publish_guard",
-            "timeout": 10,
-            "statusMessage": "Checking publish policy"
-          },
-          {
-            "type": "command",
-            "command": "sh \"${CLAUDE_PLUGIN_ROOT}/hooks/run.sh\" unreviewed_agent_edits",
+            "command": "sh \"${CLAUDE_PLUGIN_ROOT}/hooks/run.sh\" pre_shell",
             "timeout": 15,
-            "statusMessage": "Checking for unreviewed agent edits"
+            "statusMessage": "Checking publish policy and agent edits"
           }
         ]
       }
@@ -49,15 +32,9 @@
         "hooks": [
           {
             "type": "command",
-            "command": "sh \"${CLAUDE_PLUGIN_ROOT}/hooks/run.sh\" consult_router",
-            "timeout": 15,
-            "statusMessage": "Routing the change to its owning agent"
-          },
-          {
-            "type": "command",
-            "command": "sh \"${CLAUDE_PLUGIN_ROOT}/hooks/run.sh\" security_scan",
-            "timeout": 60,
-            "statusMessage": "Security scanning edited code"
+            "command": "sh \"${CLAUDE_PLUGIN_ROOT}/hooks/run.sh\" post_edit",
+            "timeout": 30,
+            "statusMessage": "Routing and scanning the change"
           }
         ]
       }
@@ -91,15 +68,9 @@
         "hooks": [
           {
             "type": "command",
-            "command": "sh \"${CLAUDE_PLUGIN_ROOT}/hooks/run.sh\" agent_watch",
-            "timeout": 15,
-            "statusMessage": "Recording the consult"
-          },
-          {
-            "type": "command",
-            "command": "sh \"${CLAUDE_PLUGIN_ROOT}/hooks/run.sh\" agent_report",
-            "timeout": 10,
-            "statusMessage": "Queuing the seat's claims for a verdict"
+            "command": "sh \"${CLAUDE_PLUGIN_ROOT}/hooks/run.sh\" agent_stop",
+            "timeout": 20,
+            "statusMessage": "Recording the consult and its claims"
           }
         ]
       }

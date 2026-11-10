@@ -113,6 +113,94 @@ def have_project_dir() -> bool:
     return bool(os.environ.get("CLAUDE_PROJECT_DIR"))
 
 
+def plugin_data_dir() -> Path | None:
+    """The harness-provided directory for plugin state, or None without one.
+
+    Every caller treats None as "keep no state and say the full thing", so a
+    harness that stops providing the directory makes the hooks more verbose,
+    never quieter.
+    """
+    data = os.environ.get("CLAUDE_PLUGIN_DATA")
+    return Path(data) if data else None
+
+
+def prune_older(directory: Path, ttl_seconds: float) -> None:
+    """Drop files in `directory` older than the TTL. Never raises.
+
+    Session stamps and agent snapshots are inert once their session is gone;
+    this keeps each store small without anyone having to remember it.
+    """
+    import time
+
+    cutoff = time.time() - ttl_seconds
+    try:
+        for stamp in directory.iterdir():
+            try:
+                if stamp.stat().st_mtime < cutoff:
+                    stamp.unlink()
+            except OSError:
+                continue
+    except OSError:
+        pass
+
+
+#: Global options accepted *before* a git subcommand that consume the next
+#: token. `--opt=value` forms need no entry; they are one token and are
+#: skipped as flags.
+GIT_GLOBAL_VALUE_FLAGS = frozenset(
+    {"-C", "-c", "--exec-path", "--git-dir", "--work-tree", "--namespace", "--config-env"}
+)
+
+
+def git_subcommand(after_git: str) -> tuple[str, list[str]] | None:
+    """(subcommand, remaining tokens) for the text following the word `git`.
+
+    The subcommand is the first token that is not a global option or a global
+    option's value. Matching a word anywhere after `git` instead is the bug
+    both shell guards have had: it read `git stash push` as a publish and
+    `git log --grep=commit` as a commit. Quoted values stay one token, so
+    `-c user.name="A B" commit` still resolves to `commit`. Returns None when
+    no subcommand is present.
+    """
+    # Split on whitespace outside quotes, keeping the quotes in the token. A
+    # shell lexer is not used: in its Windows-safe mode it only honors a quote
+    # at the start of a word, which splits `user.name="A B"` in two. An
+    # unbalanced quote runs to the end of the text as one token; both guards
+    # also test a copy of the command with its quotes removed, which covers it.
+    tokens: list[str] = []
+    current: list[str] = []
+    quote = ""
+    for char in after_git:
+        if quote:
+            current.append(char)
+            if char == quote:
+                quote = ""
+        elif char in "\"'":
+            quote = char
+            current.append(char)
+        elif char.isspace():
+            if current:
+                tokens.append("".join(current))
+                current = []
+        else:
+            current.append(char)
+    if current:
+        tokens.append("".join(current))
+
+    index = 0
+    while index < len(tokens):
+        token = tokens[index]
+        if not token.startswith("-"):
+            break
+        # `-C /tmp` and friends swallow the next token; `--git-dir=x` does not.
+        if token in GIT_GLOBAL_VALUE_FLAGS:
+            index += 1
+        index += 1
+    if index >= len(tokens):
+        return None
+    return tokens[index], tokens[index + 1:]
+
+
 IGNORE_PATH = ".claude/.roll-call-ignore"
 
 
@@ -208,15 +296,9 @@ def session_once(session_id: object, key: str) -> bool:
             return False
         store.mkdir(parents=True, exist_ok=True)
         stamp.touch()
-        cutoff = time.time() - ONCE_TTL_SECONDS
-        for old in store.iterdir():
-            try:
-                if old.stat().st_mtime < cutoff:
-                    old.unlink()
-            except OSError:
-                continue
     except OSError:
         return True
+    prune_older(store, ONCE_TTL_SECONDS)
     return True
 
 
@@ -331,18 +413,7 @@ def snapshot_file(project: Path, agent_id: object) -> Path | None:
 
 def prune_snapshots(directory: Path) -> None:
     """Snapshots whose agent never reported back age out."""
-    import time
-
-    cutoff = time.time() - SNAPSHOT_TTL_SECONDS
-    try:
-        for stamp in directory.iterdir():
-            try:
-                if stamp.stat().st_mtime < cutoff:
-                    stamp.unlink()
-            except OSError:
-                continue
-    except OSError:
-        pass
+    prune_older(directory, SNAPSHOT_TTL_SECONDS)
 
 
 def repo_for(edited_path: str) -> str:

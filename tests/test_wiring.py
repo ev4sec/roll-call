@@ -83,10 +83,43 @@ def test_every_wired_hook_exists_on_disk() -> None:
 BATCHED = {"backend_tests", "dependency_audit", "artifact_check"}
 
 
+#: Events that run two hooks in one process. hooks.json names the left side;
+#: the right side still runs standalone, and the left must import each one.
+MERGED = {
+    "pre_shell": ("publish_guard", "unreviewed_agent_edits"),
+    "post_edit": ("consult_router", "security_scan"),
+    "agent_stop": ("agent_watch", "agent_report"),
+    "session_open": ("session_start", "session_rebrief"),
+}
+
+
+def reached_through_another() -> set[str]:
+    return BATCHED | {part for parts in MERGED.values() for part in parts}
+
+
 def test_every_hook_on_disk_is_wired() -> None:
     """An unwired hook is a guard nobody is getting."""
-    unwired = sorted(on_disk() - wired_names() - BATCHED)
+    unwired = sorted(on_disk() - wired_names() - reached_through_another())
     assert not unwired, f"hooks exist but nothing invokes them: {unwired}"
+
+
+def test_the_merged_hooks_are_reached_through_their_event_hook() -> None:
+    """Taking a hook out of hooks.json is only safe if its event hook calls it,
+    and a copy left in hooks.json would run it twice per event."""
+    for runner, parts in sorted(MERGED.items()):
+        assert runner in wired_names(), f"{runner} is not wired"
+        source = (ROOT / "hooks" / f"{runner}.py").read_text(encoding="utf-8")
+        for part in parts:
+            assert f"import {part}" in source, f"{runner}.py does not import {part}"
+            assert (ROOT / "hooks" / f"{part}.py").is_file()
+            assert part not in wired_names(), f"{part} is wired directly; {runner} owns it"
+
+
+def test_each_event_starts_one_process() -> None:
+    """Two handlers on one event are two shells and two interpreters for it."""
+    for event, groups in wiring()["hooks"].items():
+        handlers = [handler for group in groups for handler in group["hooks"]]
+        assert len(handlers) == 1, f"{event} starts {len(handlers)} hooks"
 
 
 def test_the_batched_hooks_are_reached_through_post_batch() -> None:
@@ -140,15 +173,20 @@ def test_the_router_is_wired_to_writes_and_the_ledger_to_agents() -> None:
                 if match:
                     events[match.group(1)] = (event, group.get("matcher", ""))
 
-    assert events["consult_router"][0] == "PostToolUse"
-    assert "Write" in events["consult_router"][1]
-    assert "Edit" in events["consult_router"][1]
+    # The router runs inside post_edit, the ledger inside agent_stop, and the
+    # publish guard inside pre_shell; the merged-hooks test above pins that.
+    assert events["post_edit"][0] == "PostToolUse"
+    assert "Write" in events["post_edit"][1]
+    assert "Edit" in events["post_edit"][1]
     assert events["agent_snapshot"][0] == "SubagentStart"
-    assert events["agent_watch"][0] == "SubagentStop"
-    assert events["agent_report"][0] == "SubagentStop"
+    assert events["agent_stop"][0] == "SubagentStop"
     assert events["turn_end"][0] == "Stop"
-    assert events["publish_guard"][0] == "PreToolUse"
-    assert events["session_start"][0] == "SessionStart"
+    assert events["pre_shell"][0] == "PreToolUse"
+    assert "Bash" in events["pre_shell"][1]
+    assert events["session_open"][0] == "SessionStart"
+    # No matcher on the session hook: the rebrief must fire on a compaction
+    # and a resume, not only on a plain startup.
+    assert events["session_open"][1] == ""
     # The expensive checks run once per batch, and only there: a copy left on
     # PostToolUse would run the suite twice per edit.
     assert events["post_batch"][0] == "PostToolBatch"

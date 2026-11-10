@@ -42,6 +42,25 @@ TARGET="$HOOK_DIR/$HOOK_NAME.py"
 [ -f "$TARGET" ] || exit 0
 BOOT="$HOOK_DIR/_boot.py"
 
+# The plugin is installed once and is live in every repository the user
+# opens, and most of those never ran init. Every hook already checks for the
+# engine config first and stays silent without it, but it used to start an
+# interpreter to find that out, on every shell command and every edit. The
+# same two file tests are made here instead, before anything is started:
+# an opted-out repository, or one with no engine config, costs one shell.
+#
+# The session hooks are exempt from the second test because offering init in
+# a repository that has no config yet is their whole job. When the harness
+# did not name the project there is nothing to test, and the hook runs and
+# decides for itself, which is what it did before this existed.
+if [ -n "${CLAUDE_PROJECT_DIR:-}" ]; then
+    [ -e "$CLAUDE_PROJECT_DIR/.claude/.roll-call-ignore" ] && exit 0
+    case $HOOK_NAME in
+        session_open|session_start) ;;
+        *) [ -f "$CLAUDE_PROJECT_DIR/.claude/engine.toml" ] || exit 0 ;;
+    esac
+fi
+
 # On Windows the interpreter is almost always `python`, and a `python3` on
 # PATH is usually a placeholder that exits without running anything, so it
 # is tried second there. Everywhere else `python3` is the reliable name.

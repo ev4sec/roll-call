@@ -168,17 +168,22 @@ def brief(project: Path, session_id: object, source: object) -> str:
     return head + "\n\n" + "\n\n".join(sections) + "\n"
 
 
+def text_for(payload: dict) -> str:
+    """The brief for this session start, or "" when the ledgers hold nothing."""
+    if not _engine.have_project_dir() or not _engine.initialized():
+        return ""
+    return brief(_engine.project_dir(), payload.get("session_id"), payload.get("source"))
+
+
 def main() -> int:
     try:
         payload = json.load(sys.stdin)
     except (json.JSONDecodeError, ValueError):
         return 0
-
-    if not _engine.have_project_dir() or not _engine.initialized():
+    if not isinstance(payload, dict):
         return 0
 
-    project = _engine.project_dir()
-    text = brief(project, payload.get("session_id"), payload.get("source"))
+    text = text_for(payload)
     if text:
         sys.stdout.write(text)
     return 0

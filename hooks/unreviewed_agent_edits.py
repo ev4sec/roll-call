@@ -43,15 +43,33 @@ MAX_DIFF_LINES = 120
 
 SEGMENT_SPLIT = re.compile(r"(?:\|\||&&|[;|&\n\r])")
 GIT_WORD = re.compile(r"(?<![\w./-])git(?:\.exe)?(?![\w.-])", re.IGNORECASE)
-COMMIT_WORD = re.compile(r"(?<![\w-])commit(?![\w-])", re.IGNORECASE)
+CONTINUATION = re.compile(r"\\\r?\n")
+#: The dashed builtin form, `git-commit -m x`, which `GIT_WORD` refuses.
+GIT_DASHED_COMMIT = re.compile(r"(?<![\w./-])git-commit(?![\w.-])", re.IGNORECASE)
 
 
 def is_git_commit(command: str) -> bool:
-    """True if any segment of the command line is a `git commit`."""
-    return any(
-        GIT_WORD.search(segment) and COMMIT_WORD.search(segment)
-        for segment in SEGMENT_SPLIT.split(command)
-    )
+    """True if any segment of the command line is a `git commit`.
+
+    **`commit` must be the subcommand, not a word somewhere after `git`.**
+    Matching the word anywhere fired on `git log --grep=commit` and on
+    `git diff -- docs/commit.md`, and firing clears the marker, so a
+    read-only command could spend the one prompt the real commit needed.
+    Each segment is also tested with its quotes removed, the same way the
+    publish guard reads a push.
+    """
+    command = CONTINUATION.sub(" ", command)
+    for segment in SEGMENT_SPLIT.split(command):
+        for variant in (segment, segment.replace("'", "").replace('"', "")):
+            if GIT_DASHED_COMMIT.search(variant):
+                return True
+            git = GIT_WORD.search(variant)
+            if not git:
+                continue
+            parsed = _engine.git_subcommand(variant[git.end():])
+            if parsed is not None and parsed[0].lower() == "commit":
+                return True
+    return False
 
 
 def read_marker(text: str) -> tuple[list[str], list[str] | None]:
@@ -109,23 +127,19 @@ def source_diff(project: Path, paths: list[str]) -> str:
     return diff
 
 
-def main() -> int:
-    try:
-        payload = json.load(sys.stdin)
-    except (json.JSONDecodeError, ValueError):
-        return 0
-
+def reason_for(payload: dict) -> str | None:
+    """The prompt to show before this command runs, or None for no prompt."""
     if not _engine.initialized():
-        return 0
+        return None
 
     command = str((payload.get("tool_input") or {}).get("command", ""))
     if not command or not is_git_commit(command):
-        return 0
+        return None
 
     project = _engine.project_dir()
     marker = project / MARKER
     if not marker.exists():
-        return 0
+        return None
 
     try:
         agents, files = read_marker(marker.read_text(encoding="utf-8"))
@@ -139,7 +153,7 @@ def main() -> int:
 
     if not diff.strip():
         # The agents touched nothing under the source root. Nothing to look at.
-        return 0
+        return None
 
     lines = diff.splitlines()
     excerpt = "\n".join(lines[:MAX_DIFF_LINES])
@@ -147,7 +161,7 @@ def main() -> int:
         excerpt += f"\n... {len(lines) - MAX_DIFF_LINES} more lines"
 
     who = ", ".join(agents) if agents else "an agent"
-    reason = (
+    return (
         f"An advisory agent ran since the last commit ({who}), and the source "
         f"root has changed. Agents mutate source to test whether guards fire "
         f"and do not reliably restore it. One such edit reached a commit on "
@@ -157,6 +171,19 @@ def main() -> int:
         f"`git checkout --` that file and re-run the suite before committing.\n\n"
         f"{excerpt}"
     )
+
+
+def main() -> int:
+    try:
+        payload = json.load(sys.stdin)
+    except (json.JSONDecodeError, ValueError):
+        return 0
+    if not isinstance(payload, dict):
+        return 0
+
+    reason = reason_for(payload)
+    if not reason:
+        return 0
 
     print(
         json.dumps(

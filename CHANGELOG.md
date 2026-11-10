@@ -1,5 +1,49 @@
 # Changelog
 
+## 0.6.3 (2026-11-09)
+
+Less waiting on every edit and every shell command, and three fixes found
+while measuring. Nothing here touches the files under your `.claude/`, and
+no command's permissions change.
+
+- **A repository that never ran init costs one shell, not an interpreter.**
+  The plugin is live in every repository you open. Each hook already stayed
+  silent where init had not run, but it started Python to find that out.
+  `run.sh` now makes the same check itself and exits first. The session hook
+  is the exception, since offering init there is its job.
+- **Each event starts one process instead of two.** A shell command ran the
+  publish guard and the commit guard as two hooks; an edit ran the router and
+  the security scan as two; a finished agent ran the ledger and the claim
+  queue as two; a session start ran the setup notice and the rebrief as two.
+  Each pair now shares one process. What they say and when is unchanged: the
+  router still exits 2 on an owed consult, the publish guard still fails
+  closed, and both shell guards still only ever ask. Measured on Windows at
+  about 210 ms per edit, down from about 370.
+- **Bandit runs once per batch of edits.** Where it is installed it used to
+  start on every Python edit, at more than twice the cost of everything else
+  the edit paid for. It now runs once after the batch, over the files the
+  batch wrote. The pattern scan still answers on each edit.
+- **The batch checks can no longer outrun their own time limit.** The suite,
+  the dependency audit, and the artifact build ran in a row, and their worst
+  cases added up to more than the hook's limit, at which point every result
+  was lost. The suite and the build now share one lane and the audit and
+  bandit another, side by side. A lane that fails says so and leaves the
+  other lane's report intact.
+- **A manifest and its lockfile are audited once.** Editing both in one batch
+  ran the auditor twice over the same dependencies. The refused-package check
+  still reads every manifest edited.
+- **The commit guard reads the subcommand, not the word.** A read-only git
+  command that merely mentioned "commit", in a search pattern or a file name,
+  set off the post-agent prompt, and setting it off spends it, so the real
+  commit that followed went unprompted. Both shell guards now share one
+  parser, which also keeps a quoted option value in one piece.
+- **The consult ledger is read from its end.** It is append-only and never
+  cleared, and every routed edit read all of it. Only the tail is read now,
+  so the cost stays flat as a project ages.
+- The security scan treats the project's configured test directory as tests,
+  not only a directory named `tests`.
+- The routing template says that `*` matches across directories.
+
 ## 0.6.2 (2026-10-17)
 
 Two cleanups prompted by the plugin directory's security scan. Neither

@@ -183,18 +183,22 @@ def audit_node(repo):
     return (findings[:25], True)
 
 
-def check(path: str, session_id: object) -> dict | None:
-    """The verdict for one edited path, or None when it is not a manifest."""
+def is_manifest(path: str) -> bool:
+    """Whether this edit is one the audit cares about at all."""
     if not _engine.get("dependencies", "enabled"):
-        return None
+        return False
     manifests = {str(m).lower() for m in _engine.get("dependencies", "manifests")}
     basename = os.path.basename(path)
-    if not basename or basename.lower() not in manifests:
-        return None
+    return bool(basename) and basename.lower() in manifests
 
+
+def banned(path: str) -> dict | None:
+    """A block when this manifest names a refused package, else None.
+
+    Reads the edited file itself, so it is asked once per manifest; the audit
+    below is about the repository and is asked once per ecosystem.
+    """
     label = _engine.name()
-    repo = _engine.repo_for(path)
-
     # Blocking check first: a policy-banned package is a constraint violation.
     pattern = _banned_pattern()
     if pattern is not None and os.path.isfile(path):
@@ -215,8 +219,17 @@ def check(path: str, session_id: object) -> dict | None:
                 ),
                 "systemMessage": f"{label}: refused dependency blocked.",
             }
+    return None
 
-    eco = ecosystem(basename)
+
+def audit(repo: str, eco: str | None, basename: str, session_id: object) -> dict | None:
+    """Run one ecosystem's auditor over `repo`. `basename` labels the report.
+
+    Two manifests of the same ecosystem edited in one batch, a manifest and
+    its lockfile for instance, describe the same dependency set, so
+    `post_batch.py` calls this once for the pair.
+    """
+    label = _engine.name()
     if eco == "python":
         deps = python_deps(repo)
         if deps is None:
@@ -254,6 +267,17 @@ def check(path: str, session_id: object) -> dict | None:
             ),
         },
     }
+
+
+def check(path: str, session_id: object) -> dict | None:
+    """The verdict for one edited path, or None when it is not a manifest."""
+    if not is_manifest(path):
+        return None
+    blocked = banned(path)
+    if blocked:
+        return blocked
+    basename = os.path.basename(path)
+    return audit(_engine.repo_for(path), ecosystem(basename), basename, session_id)
 
 
 def main() -> int:

@@ -19,6 +19,9 @@
 #   agents    Who to ask. More than one means ask them in PARALLEL, one message,
 #             background. Never serially.
 #   paths     Glob patterns, matched against repo-relative POSIX paths.
+#             A `*` matches across directory separators here, so "src/*.py"
+#             also covers "src/pkg/deep.py". Name the directory in full where
+#             a rule should stop at one level.
 #             Matched on writes made through the editor tools; a file changed
 #             by a shell command or a git operation is not a write the router
 #             is told about.

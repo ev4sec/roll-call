@@ -53,6 +53,9 @@ except ModuleNotFoundError:  # pragma: no cover - 3.10 and older
 
 ROUTING = ".claude/routing.toml"
 LEDGER = ".claude/.consults"
+#: How much of the ledger's end is read to decide freshness. An entry is a
+#: seat name and a timestamp, about 30 bytes, so this is some 2,000 consults.
+LEDGER_TAIL_BYTES = 64 * 1024
 CONFIG = ".claude/engine.toml"
 IGNORE = ".claude/.roll-call-ignore"
 
@@ -125,7 +128,19 @@ def _fresh_consults(project: Path, window_hours: float) -> set[str]:
     cutoff = time.time() - window_hours * 3600
     fresh: set[str] = set()
     try:
-        for line in ledger.read_text(encoding="utf-8").splitlines():
+        # The ledger is append-only and never cleared, so the fresh entries
+        # are the last ones. Reading only the tail keeps the cost of an edit
+        # flat however long the project has been running. A seat missed
+        # because thousands of consults landed inside one window would be
+        # asked again, which is the verbose direction, never the silent one.
+        with ledger.open("rb") as handle:
+            handle.seek(0, os.SEEK_END)
+            start = max(0, handle.tell() - LEDGER_TAIL_BYTES)
+            handle.seek(start)
+            lines = handle.read().decode("utf-8", errors="replace").splitlines()
+        if start > 0:
+            lines = lines[1:]  # the first line is cut mid-entry
+        for line in lines:
             name, _, stamp = line.partition("\t")
             try:
                 if float(stamp) >= cutoff:
@@ -383,7 +398,20 @@ def main() -> int:
         payload = json.load(sys.stdin)
     except (json.JSONDecodeError, ValueError):
         return 0
+    if not isinstance(payload, dict):
+        return 0
+    return run(payload)
 
+
+def run(payload: dict) -> int:
+    """Route one edit. Messages go to stderr; the return value is the exit code.
+
+    Split from `main()` so `post_edit.py` can run the router and the security
+    scan in one process. **This file stays importable on its own**, with no
+    import of the shared loader: the project-side `test_consult_router.py`
+    that init writes loads it by file path from the plugin directory, where
+    nothing else is on the import path.
+    """
     path = (payload.get("tool_input") or {}).get("file_path")
     if not isinstance(path, str):
         return 0

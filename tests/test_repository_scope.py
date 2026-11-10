@@ -81,11 +81,23 @@ def firing_payloads(project: Path) -> dict[str, dict]:
                          "last_assistant_message": "[verified] it runs", "session_id": "s1"},
         "session_rebrief": {"hook_event_name": "SessionStart", "source": "compact",
                             "session_id": "s1"},
+        # The one-process-per-event hooks, each with a payload that makes both
+        # of its halves speak in a configured repository.
+        "pre_shell": {"tool_input": {"command": "git commit -m x && git push origin main"}},
+        "post_edit": {"tool_input": {"file_path": str(danger)}, "session_id": "s1"},
+        "agent_stop": {"hook_event_name": "SubagentStop", "agent_type": "systems-architect",
+                       "agent_id": "t1", "last_assistant_message": "[verified] it runs",
+                       "session_id": "s1"},
     }
 
 
+#: The session hooks offer init in a repository that has no config, which is
+#: the opposite of silence and is tested in their own files.
+SPEAKS_UNCONFIGURED = {"session_start", "session_open"}
+
 HOOK_NAMES = sorted(
-    p.stem for p in HOOKS.glob("*.py") if not p.name.startswith("_") and p.stem != "session_start"
+    p.stem for p in HOOKS.glob("*.py")
+    if not p.name.startswith("_") and p.stem not in SPEAKS_UNCONFIGURED
 )
 
 
@@ -381,6 +393,7 @@ def test_the_snapshot_hook_is_wired_to_the_agent_starting() -> None:
     stop = [handler["command"] for group in wiring["hooks"]["SubagentStop"]
             for handler in group["hooks"]]
     assert any(c.endswith("agent_snapshot") for c in start)
-    assert any(c.endswith("agent_watch") for c in stop)
+    assert any(c.endswith("agent_stop") for c in stop)
+    assert "import agent_watch" in (ROOT / "hooks" / "agent_stop.py").read_text(encoding="utf-8")
     assert "Agent" not in json.dumps(wiring["hooks"].get("PreToolUse", []))
     assert "Agent" not in json.dumps(wiring["hooks"].get("PostToolUse", []))

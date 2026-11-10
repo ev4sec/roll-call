@@ -10,9 +10,17 @@ every tool call in a batch has resolved, with the whole batch in the payload,
 so the suite runs once against the finished tree. A batch of one edit is still
 a batch, so single edits are checked exactly as before.
 
-**What stays per-edit.** The consult router and the security scan remain on
+**What stays per-edit.** The consult router and the pattern scan remain on
 `PostToolUse`: their message is about one file, and the router's exit code is
-the enforcement guarantee this plugin is built on. Nothing about them moves.
+the enforcement guarantee this plugin is built on. Bandit is the one part of
+the scan that runs here, once over the Python files the batch wrote, because
+starting it costs more than everything else an edit pays for.
+
+**Two lanes run side by side.** The suite and the artifact build share one
+lane, in that order, because both execute the working tree. The dependency
+audit and bandit share the other, because they only read. Each lane finishes
+well inside this hook's time limit at the default budgets; run in a row,
+their worst cases did not.
 
 **How the results reach the session.** Each check returns the JSON it would
 have printed as a PostToolUse hook. A `block` there is turned into context
@@ -37,6 +45,7 @@ import _engine
 import artifact_check
 import backend_tests
 import dependency_audit
+import security_scan
 
 EDIT_TOOLS = frozenset({"Write", "Edit", "NotebookEdit"})
 
@@ -85,11 +94,13 @@ def merge(results: list[dict | None]) -> dict | None:
     return out
 
 
-def run(payload: dict) -> dict | None:
-    paths = edited_paths(payload)
-    if not paths:
-        return None
-    session_id = payload.get("session_id")
+def tree_lane(paths: list[str], session_id: object) -> list[dict | None]:
+    """The checks that execute the working tree: the suite, then the build.
+
+    One after the other on purpose. A build can write metadata into the
+    source tree, and a suite running over a tree that is being written to
+    reports on neither state.
+    """
     results: list[dict | None] = []
 
     # The suite is whole-tree, so it runs once per repository touched. A
@@ -97,12 +108,9 @@ def run(payload: dict) -> dict | None:
     by_repo: dict[str, list[str]] = {}
     for path in paths:
         if backend_tests.is_relevant(path):
-            by_repo.setdefault(backend_tests._engine.repo_for(path), []).append(path)
+            by_repo.setdefault(_engine.repo_for(path), []).append(path)
     for repo, group in by_repo.items():
         results.append(backend_tests.run_suite(repo, ", ".join(group), session_id))
-
-    for path in paths:
-        results.append(dependency_audit.check(path, session_id))
 
     built: set[str] = set()
     for path in paths:
@@ -110,6 +118,61 @@ def run(payload: dict) -> dict | None:
         if repo is not None and repo not in built:
             built.add(repo)
             results.append(artifact_check.check_repo(repo, path.rsplit("/", 1)[-1]))
+    return results
+
+
+def read_lane(paths: list[str], session_id: object) -> list[dict | None]:
+    """The checks that only read: the dependency audit and bandit.
+
+    A refused package is looked for in every manifest edited, because that
+    check reads the file itself. The audit proper is about the repository,
+    so a manifest and its lockfile edited together are audited once.
+    """
+    results: list[dict | None] = []
+    audited: set[tuple[str, str | None]] = set()
+    for path in paths:
+        if not dependency_audit.is_manifest(path):
+            continue
+        blocked = dependency_audit.banned(path)
+        if blocked:
+            results.append(blocked)
+            continue
+        basename = path.rsplit("/", 1)[-1]
+        key = (_engine.repo_for(path), dependency_audit.ecosystem(basename))
+        if key in audited:
+            continue
+        audited.add(key)
+        results.append(dependency_audit.audit(key[0], key[1], basename, session_id))
+
+    results.append(security_scan.bandit_batch(paths))
+    return results
+
+
+def _guarded(lane, name: str, paths: list[str], session_id: object) -> list[dict | None]:
+    """A lane that fails says so instead of taking the other lane's report."""
+    try:
+        return lane(paths, session_id)
+    except Exception as exc:
+        return [{"systemMessage": f"{_engine.name()}: the {name} checks could not run ({exc})."}]
+
+
+def run(payload: dict) -> dict | None:
+    paths = edited_paths(payload)
+    if not paths:
+        return None
+    session_id = payload.get("session_id")
+
+    # Two lanes side by side. Run in a row, a slow suite, a slow audit, and a
+    # slow build add up to more than this hook's own time limit, and a hook
+    # killed at its limit reports nothing at all. The config is read before
+    # the lanes start so neither reads it mid-parse.
+    _engine.load()
+    from concurrent.futures import ThreadPoolExecutor
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        tree = pool.submit(_guarded, tree_lane, "test and build", paths, session_id)
+        read = pool.submit(_guarded, read_lane, "audit and scan", paths, session_id)
+        results = tree.result() + read.result()
 
     return merge(results)
 
