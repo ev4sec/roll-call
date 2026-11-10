@@ -1,4 +1,4 @@
----
+```yaml
 name: practitioner-critic
 description: >
   The working practitioner and the interface critic in one seat: someone who
@@ -16,7 +16,7 @@ effort: high
 memory: project
 skills:
   - agent-brief
----
+```
 
 # {{PROJECT}}: the practitioner in the chair
 

@@ -1,5 +1,48 @@
 # Changelog
 
+## 0.7.0 (2026-11-10)
+
+**This repository is now an instructions-only edition. It ships no hooks, no
+scripts, and no tests.** If you installed roll-call from this repository and
+rely on its hooks, read the last item before you update.
+
+- **Why.** The plugin directory now accepts hooks, scripts, and tool
+  permissions beyond reading only from organizations it has verified. This
+  repository is the one the directory listing tracks, so it now holds only
+  what that rule allows: Markdown, JSON, and an icon.
+- **The hooks become a specification.** A new skill, `build-the-engine`,
+  describes each hook: what it reads, what it decides, what it prints, and
+  which way it fails, including the harness behaviors that were only found by
+  running them. Claude builds the hooks from it inside your repository, under
+  `.claude/hooks/`, and you approve each file. The skill also carries the
+  engine config and a description of the four project-side tests.
+- **init does its own copying.** There is no scaffold script. `init` reads
+  each template and writes it, with the same rules as before: an existing
+  file is never overwritten, an existing `CLAUDE.md` gets a marked section
+  appended, and judgment placeholders are left visible. It no longer writes
+  `engine.toml`, the ledger ignore file, or the tests; those arrive with the
+  hooks, from `build-the-engine`.
+- **doctor reads by hand.** There is no doctor script. It checks the routing
+  table, the roster, the placeholders, and whether hooks have been built and
+  wired, using only the read tools. It no longer compares your files against
+  the templates.
+- **Every command pre-approves reading only.** `init` and `seat` used to
+  pre-approve edits under `.claude/`. Each write now asks.
+- **The templates say what is and is not enforced.** The operating procedure
+  and the `CLAUDE.md` template no longer say hooks ship with the plugin. They
+  say enforcement exists only where the hooks have been built, and what to do
+  by hand until then.
+- **Agent templates carry their frontmatter in a fenced block**, which `init`
+  restores on install. The routing table template travels the same way.
+- **Removed:** `hooks/`, `scripts/`, `tests/`, `evals/`, and the config files
+  that served them. The icon is now a PNG.
+- **If you installed from `ev4sec/roll-call` and use the hooks: updating to
+  this version removes them.** The full engine, with everything through
+  0.6.3, continues as a separate plugin at `ev4sec/roll-call-engine`, which
+  the plugin directory has not reviewed and does not list. Its README has
+  the install lines. Nothing under your project's `.claude/` is affected
+  either way; those files have always been yours.
+
 ## 0.6.3 (2026-11-09)
 
 Less waiting on every edit and every shell command, and three fixes found

@@ -1,4 +1,4 @@
----
+```yaml
 name: systems-architect
 description: >
   Staff-level technical decision agent for {{PROJECT}}. Use it to resolve hard
@@ -14,7 +14,7 @@ effort: high
 memory: project
 skills:
   - agent-brief
----
+```
 
 # {{PROJECT}} Systems Architect
 

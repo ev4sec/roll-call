@@ -1,19 +1,16 @@
 ---
 name: write-doc-contract
-description: Turn tests/test_doc_contract.py from a skipped template into a live test that diffs a governing document against the code. Use when setting up roll-call, when /roll-call:doctor reports the doc contract is unfilled, when a document that a gate reads has drifted from reality, or when adding a new section to CLAUDE.md that agents will reason from.
-paths:
-  - "**/test_doc_contract.py"
+description: Write the document contract, a live test that diffs a governing document against the code and fails in both directions. Use when setting up roll-call, when /roll-call:doctor reports the doc contract is unfilled, when a document that a gate reads has drifted from reality, or when adding a new section to CLAUDE.md that agents will reason from.
 ---
 
 # Make a governing document check itself
 
-`tests/test_doc_contract.py` ships **skipped**. That is deliberate, and it is
-the only piece of the engine that arrives unfinished on purpose, because the
-thing it tests is different in every project. Its own header calls it "the
-single highest-value pattern in the engine."
+The document contract is the one test roll-call cannot describe in advance,
+because the thing it tests is different in every project. It is also the
+single highest-value pattern in the whole process.
 
-Leaving it skipped is the most common way an install ends up looking complete
-and being hollow.
+Leaving it unwritten is the most common way an install ends up looking
+complete and being hollow.
 
 ## The failure it prevents, exactly as it happened
 
@@ -90,5 +87,5 @@ something the test already knew.
 - It fails in both directions. Add a field to the code without documenting it,
   and confirm.
 - The failure message names the specific drift.
-- Remove the skip marker and the template scaffolding. A test file that still
-  contains a placeholder is one somebody will assume is finished.
+- Leave no placeholder or skip marker behind. A test file that still contains
+  one is a file somebody will assume is finished.

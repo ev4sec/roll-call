@@ -1,4 +1,4 @@
----
+```yaml
 name: test-strategist
 description: >
   Coverage conscience for {{PROJECT}}. Use it to find what the tests do not
@@ -13,7 +13,7 @@ effort: high
 memory: project
 skills:
   - agent-brief
----
+```
 
 # {{PROJECT}} Test Strategist
 

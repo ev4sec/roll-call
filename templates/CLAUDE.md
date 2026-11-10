@@ -91,14 +91,17 @@ loaded here:
 
 Two halves, and the split matters when something needs changing.
 
-**The machinery ships with the roll-call plugin** and is read-only: the hooks
-that enforce routing, guard publication, scan edited files, write the
-consult ledger, queue each seat's claims for a verdict, and read all of that
-back to a session whose context was rebuilt. Update it with
-`/plugin update roll-call`.
+**The roll-call plugin carries the instructions**: the setup and checkup
+commands, the skills, and the specification for the hooks. It ships no
+hooks and runs nothing by itself. Update it with `/plugin update roll-call`.
 
 **Everything under `.claude/` in this repository belongs to this project**,
-including the agent definitions in `.claude/agents/`. Edit them freely. They are
-checked in, they are reviewed like source, and a plugin update will not
-overwrite them. If a seat gives generic advice, the fix is to teach it about
-this codebase in its own file.
+including the agent definitions in `.claude/agents/` and any hooks built
+under `.claude/hooks/`. Edit them freely. They are checked in, they are
+reviewed like source, and a plugin update will not overwrite them. If a seat
+gives generic advice, the fix is to teach it about this codebase in its own
+file.
+
+**Enforcement exists only where the hooks have been built here.** Until
+then the routing table is followed on instruction, which is the weak form.
+`/roll-call:doctor` says which state this repository is in.

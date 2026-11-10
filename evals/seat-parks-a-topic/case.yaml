@@ -1,4 +1,0 @@
-schema_version: "1.1"
-name: seat-parks-a-topic
-context:
-  scaffold_script: scaffold.sh

@@ -181,7 +181,8 @@ So, whenever an advisory agent has run:
    deleting, convert what they prove into real tests, then delete the scratch.
 4. Prefer launching them when the tree is clean, so any diff is unambiguous.
 
-The `unreviewed_agent_edits` hook, which ships with roll-call, mechanizes step 1.
+The post-agent commit guard mechanizes step 1, where the hooks have been built
+in this repository. Where they have not, step 1 is yours to remember.
 
 ## Lessons are a deliverable, not a memory
 
@@ -303,20 +304,32 @@ was read at session start and lost by the third edit. Six well-specified seats
 produced no value that day because nothing invoked them.
 
 So routing is **data plus a hook**, and the prose is the explanation rather than
-the control:
+the control.
+
+**The hooks are not part of the roll-call plugin. They are built in this
+repository**, under `.claude/hooks/`, from the specification in the plugin's
+`build-the-engine` skill, and wired in `.claude/settings.json`. Until that has
+been done, everything below that a hook is said to do is done by nobody, and
+this section is the same prose table that failed, with better formatting.
+`/roll-call:doctor` reports which state this repository is in. **If no router
+is built: before writing to a file, match its path against
+`.claude/routing.toml` yourself, and treat a `required` rule with no consult
+this session as a stop.**
+
+The parts:
 
 - **`.claude/routing.toml`**: path globs to owning agents, with the *question
   to ask* and the *cost of skipping* on every rule.
-- **The `consult_router` hook**, which ships with roll-call. It fires on every
+- **The consult router hook.** It fires on every
   write made through the editor tools, matches the path, and exits 2 with the
   agent name and the question when a `required` consult has not happened. A
   file changed by a shell command or a git operation is not a write it is told
-  about, so a routed change made that way is yours to route by hand. Fails **open** on a broken table, unlike
-  `publish_guard`, which fails closed: an unknown state there might publish;
+  about, so a routed change made that way is yours to route by hand. Fails
+  **open** on a broken table, unlike the publish guard, which fails closed: an unknown state there might publish;
   here it merely cannot advise, and wedging every edit over a syntax error is
   the worse failure.
-- **`.claude/.consults`**: an append-only ledger written by `agent_watch.py`
-  when an agent finishes. **Not maintained by hand.** A ledger on the honor system
+- **`.claude/.consults`**: an append-only ledger written by the agent ledger
+  hook when an agent finishes. **Not maintained by hand.** A ledger on the honor system
   would fail exactly the way the prose table did.
 - **`tests/test_consult_router.py`**: the regression anchor. If the table is
   edited so a previously-routed change stops routing, the test says so.
@@ -733,7 +746,7 @@ The generalization: **when a claim is about what a tool does, run the tool.**
      INHERITED. What counts as publishing, what the blast radius is, and what a
      brief must contain differ per project, and a single global rule would apply
      one project's answer to another. Write this project's own version, and make
-     `publish_guard.py` and `[publish]` in engine.toml agree with it.
+     the publish guard hook and `[publish]` in engine.toml agree with it.
 
      The shape below is the origin project's and is a reasonable default for
      anything with a public package. Adjust or replace entirely. -->
@@ -767,8 +780,8 @@ the brief in full and **carry on with the next task while he decides.**
 continues after it is presented and changes something it asserted, present a
 revised brief rather than letting the decision rest on a stale one.
 
-`publish_guard.py` enforces the pause and fails closed on unparseable input, but
-honor the intent regardless of whether the hook is active: **the hook can only
+The publish guard hook, once built, enforces the pause and fails closed on
+unparseable input, but honor the intent regardless of whether the hook exists: **the hook can only
 stop the command, and the brief is not automatable.**
 
 ## Hard rules (always)

@@ -1,9 +1,9 @@
 {
   "name": "roll-call",
   "displayName": "roll-call",
-  "description": "A self-enforcing development process for Claude Code: routes each change to the reviewer that owns it and proves the consult happened, gates publishing and packaging, and keeps the project's governing documents checked against reality. Includes a replaceable nine-seat roster that covers your development stack and then some.",
-  "icon": "assets/icon.svg",
-  "version": "0.6.3",
+  "description": "A development process for Claude Code, as instructions only: sets up a replaceable nine-seat review roster and a table routing each change to the reviewer that owns it, checks that setup for guards that are asleep, and carries a written specification for building the enforcement hooks inside your own repository. Ships no hooks and no scripts.",
+  "icon": "assets/icon.png",
+  "version": "0.7.0",
   "author": {
     "name": "Erik Vazquez"
   },
@@ -14,7 +14,6 @@
     "process",
     "code-review",
     "governance",
-    "hooks",
     "agents"
   ]
 }

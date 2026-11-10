@@ -1,8 +1,6 @@
 ---
 name: find-roster-gap
 description: Walk the work that is coming and find what no seat on the roster owns, then hand each real gap to /roll-call:seat as a one-sentence standard of evidence. Use at a slice boundary, before a roadmap or planning conversation, when a new kind of work is about to start, when a seat keeps answering questions outside its own standard, or when someone asks whether the roster is missing someone. Not for judging an agent someone has already proposed; that is /roll-call:seat on its own.
-context: fork
-background: false
 ---
 
 # Find the seat nobody has proposed
@@ -71,11 +69,12 @@ would produce** on it. Then sort it:
 
 ## Hand off
 
-This walk runs in its own context, so the reading stays out of the session
-that asked. Do not run `/roll-call:seat` from here. For each unowned item
-whose sentence holds, return the sentence, the work item, and the seats you
-tested; the invoking session runs `/roll-call:seat` with the sentence as the
-argument, one gap per run, and lets it rule. It reads the parked register and
+This walk reads a lot. Where you can, do the reading in a subagent so it
+stays out of the session that asked, and bring back only the table. Do not
+run `/roll-call:seat` from inside the walk. For each unowned item whose
+sentence holds, report the sentence, the work item, and the seats you
+tested; then `/roll-call:seat` runs with the sentence as the argument, one
+gap per run, and rules. It reads the parked register and
 tests the sentence against every seat again, and it may well say no. That is
 the gate working, not this skill failing.
 

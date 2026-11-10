@@ -1,4 +1,4 @@
----
+```yaml
 name: content-curator
 description: >
   Owner of {{PROJECT}}'s content asset: the content, not the machinery. Use it
@@ -16,7 +16,7 @@ effort: medium
 memory: project
 skills:
   - agent-brief
----
+```
 
 # {{PROJECT}} Content Curator
 

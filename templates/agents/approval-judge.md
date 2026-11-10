@@ -1,4 +1,4 @@
----
+```yaml
 name: approval-judge
 description: >
   Escalation gate for {{PROJECT}}. Given a proposed or in-progress change, it
@@ -13,7 +13,7 @@ model: opus
 effort: medium
 skills:
   - agent-brief
----
+```
 
 # {{PROJECT}} Approval Judge
 

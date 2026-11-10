@@ -1,8 +1,6 @@
 ---
 name: reconcile-board
 description: Check the project board in .claude/slice.md against what the repository actually shows, and propose the corrections. Use when the board looks stale, at a slice boundary, before a planning conversation, or when someone asks what the current state of the project is. Also use when an agent has just given advice that seems to assume an out-of-date picture of the work.
-paths:
-  - ".claude/slice.md"
 ---
 
 # Reconcile the board with reality
@@ -48,7 +46,9 @@ you to the answer you are supposed to be checking.
    Heavy consultation on a surface the board calls settled is a strong signal.
 4. **The claim queue.** `.claude/.pending-findings` holds every labeled claim
    a seat made, one tab-separated row each: timestamp, seat, label, claim.
-   The hook writes it; nothing empties it but a person. For each row, either
+   The claim hook writes it, where the hooks have been built in this
+   repository; nothing empties it but a person. If the file does not exist,
+   say that no claim queue is being kept and move on. For each row, either
    propose a ledger row for `agent-findings.md` with the verdict and the
    reproduction, or say it was read and dropped. Delete the rows you moved,
    so the file stays the list of claims nobody has judged. A row labeled

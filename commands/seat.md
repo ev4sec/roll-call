@@ -1,7 +1,6 @@
 ---
 description: Propose a new agent for the roster, holding it to the standard-of-evidence bar. Adds the seat, or records why it was parked.
-argument-hint: [what the new agent would do]
-allowed-tools: Read, Glob, Grep, Edit(.claude/**)
+allowed-tools: Read, Grep, Glob
 ---
 
 # Propose a seat: $ARGUMENTS

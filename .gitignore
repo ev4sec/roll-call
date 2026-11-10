@@ -1,19 +1,10 @@
-__pycache__/
-*.py[cod]
-.pytest_cache/
-.venv/
-venv/
 .DS_Store
 
-# Working notes and the source material the template was derived from.
-# Not shipped: it is scaffolding for building the plugin, not part of it.
+# Working notes for building the plugin. Not shipped.
 _working/
 
-# This repo runs the plugin on itself; its session ledgers must never ship.
+# This repo runs the plugin on itself; its session state must never ship.
 .claude/
 
 # Browser automation state left by the Playwright plugin during review sessions.
 .playwright-mcp/
-
-# Eval runs write their reports here.
-evals/results/

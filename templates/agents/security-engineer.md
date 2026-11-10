@@ -1,4 +1,4 @@
----
+```yaml
 name: security-engineer
 description: >
   Shift-left application-security authority for {{PROJECT}}. Use it to
@@ -13,7 +13,7 @@ effort: high
 memory: project
 skills:
   - agent-brief
----
+```
 
 # {{PROJECT}} Security Engineer (shift-left)
 

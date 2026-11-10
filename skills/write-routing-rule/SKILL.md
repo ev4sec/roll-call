@@ -1,8 +1,6 @@
 ---
 name: write-routing-rule
 description: Write or revise a rule in .claude/routing.toml so it fires when it should and stays silent otherwise. Use when adding a rule, when a rule is firing too often or never firing, when promoting a rule from advised to required, or when /roll-call:doctor reports a dead or overbroad rule.
-paths:
-  - ".claude/routing.toml"
 ---
 
 # Write a routing rule that survives a busy week
@@ -19,6 +17,11 @@ kept its routing in a paragraph once. It was read at session start and gone by
 the third edit, and the session that shipped a schema change, split two modules,
 relicensed the project and altered the roster itself consulted **zero agents**.
 Every one of those was named in that paragraph.
+
+A rule fires only where the router hook has been built in this repository
+(the `build-the-engine` skill). Without it the table is read by the session
+from the operating procedure and enforced by nothing, so write every rule
+as though a program will be matching it, because one should be.
 
 ## The bar for a new rule
 

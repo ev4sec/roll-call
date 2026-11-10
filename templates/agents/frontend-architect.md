@@ -1,4 +1,4 @@
----
+```yaml
 name: frontend-architect
 description: >
   Frontend architecture and rendering authority for {{PROJECT}}. Use it for the
@@ -16,7 +16,7 @@ effort: high
 memory: project
 skills:
   - agent-brief
----
+```
 
 # {{PROJECT}} Frontend Architect
 

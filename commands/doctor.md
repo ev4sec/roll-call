@@ -1,99 +1,107 @@
 ---
-description: Check that roll-call is actually working in this repository. Reports dead routing rules, silent hooks, unfilled placeholders, and template drift.
-allowed-tools: Read, Glob, Grep, Bash(python3 ${CLAUDE_PLUGIN_ROOT}/scripts/doctor.py:*), Bash(python ${CLAUDE_PLUGIN_ROOT}/scripts/doctor.py:*), Bash(py -3 ${CLAUDE_PLUGIN_ROOT}/scripts/doctor.py:*)
+description: Check that roll-call is actually working in this repository. Reports dead routing rules, missing seats, unfilled placeholders, and whether the enforcement hooks have been built.
+allowed-tools: Read, Grep, Glob
 ---
 
-# Check the engine
+# Check the process
 
 Every guard here is one that fails **silently** when it fails. A routing rule
-whose paths no longer exist does not error, it simply never fires. A hook with
-no interpreter does not crash the session, it returns nothing. In both cases the
-user believes they are covered and they are not, which is the specific failure
-this whole engine argues against.
+whose paths no longer exist does not error, it simply never matches. A seat no
+rule names is never consulted. A hook that was never built enforces nothing.
+In each case the user believes they are covered and they are not, which is the
+specific failure this whole process argues against.
 
 So the job is to find guards that are asleep and say so out loud.
 
-Report only what is wrong or unknown. **A healthy engine gets a short answer.**
+Report only what is wrong or unknown. **A healthy setup gets a short answer.**
 A report that lists twenty passing checks trains the reader to skim it.
 
-## 1. Run the script once
+This command reads. It changes nothing, and it does not offer to.
 
-Run `scripts/doctor.py` from `${CLAUDE_PLUGIN_ROOT}` with `python3`, passing
-`--target` as this repository's root. If that spelling is missing or the
-script exits 3 (the interpreter reported itself older than 3.11), try `python`,
-then `py -3`. Run it once. **Do not probe `--version` separately**; the script
-reports on the interpreter it is running under, which is the only answer that
-matters.
+## 1. Is it set up at all
 
-- If no spelling gets past the version line, that is the headline. Every hook
-  is inert. Nothing else matters until it is fixed, so say that first and keep
-  the rest brief.
-- If the script exits 2, roll-call was never set up here. Say so and point at
-  `/roll-call:init`.
+`.claude/routing.toml`, `.claude/operating-procedure.md`, and `.claude/agents/`
+must exist, and `CLAUDE.md` must import the procedure with
+`@.claude/operating-procedure.md`. If the procedure is not imported, that is
+the headline: the session never learns the process, and nothing else matters
+until it is fixed. If nothing is there, say roll-call was never set up here
+and point at `/roll-call:init`.
 
-Everything mechanical is in that one output. **Do not redo any of it by hand**:
-do not Glob the routing globs, do not Grep for placeholders, and do not Read
-`.claude/.consults`, `.claude/.route-stats`, or `.claude/.pending-findings`.
-They are machine files, and the script exists so their contents never need to
-enter anyone's context. Your job is to read the blocks and say what they mean
-for this project.
+## 2. The routing table
 
-## 2. What each block is telling you
+Read `.claude/routing.toml` and check each rule. This is the most valuable
+section.
 
-**`[config]`** is whether the project is described. A template value still in
-`engine.toml`, a source root or test directory that does not exist, a runner
-not on PATH: each one is a hook watching nothing. Name the fix.
+- **A rule that matches no file.** Glob each entry in `paths`. A rule with no
+  match is a seat nobody will ever be sent to.
+- **A rule naming a seat with no file** in `.claude/agents/`. It demands a
+  consult that cannot happen.
+- **A seat no rule names.** It is decoration.
+- **A rule matching a large share of the tree.** It will be muted, and it
+  takes the credible rules down with it.
+- **A rule aimed at a document by glob.** `**/*.md` never fires; only a rule
+  naming the exact file does.
+- **An `exclude` that leaves real files covered by no rule.** That is a hole
+  wearing a boundary's name.
+- **A rule with no `question` or no `why`.**
 
-**`[rules]`** is the most valuable block. A rule that matches no file is a seat
-nobody will ever be sent to. A rule naming a seat with no file blocks on a
-consult that cannot happen. A rule matching a large share of the tree will be
-muted and take the credible rules with it. An exclude that leaves real files
-covered by nothing is a hole wearing a boundary's name. A seat no rule names is
-decoration. If every rule is still `advised` long after init, say so once,
-without nagging; the posture line already does.
+If every rule is still `advised` long after setup, say so once, without
+nagging.
 
-**`[placeholders]`** is what the engine still does not know. Weight them: a
-missing `{{SCALE_NUMBER}}` costs one agent some precision, while an unfilled
-vision or agent definition means a seat is ruling from a blank record, which
-is worse than not asking it. The block marks those. If it reports the
-refusals test unfilled, that test is red on purpose and the test hook reports
-it rather than blocking; a suite that is green **including** that test has
-been made green by deleting a guard, and that is worth saying plainly.
+## 3. What the process still does not know
 
-**`[ledgers]`** is whether the guards are firing. An empty consult ledger in
-an active repository means agents are not being consulted at all, which the
-router can only report on, never cause. Consult entries that name no seat are
-runs that credit no rule. A findings ledger with no verdicts is a roster with
-no track record.
+Grep for `{{` under `.claude/` and in `CLAUDE.md`, and count per file. Do not
+list every placeholder. Weight them: a missing detail in one seat costs that
+seat some precision, while an unfilled vision or an unfilled agent definition
+means a seat is ruling from a blank record, which is worse than not asking it.
+Name those first.
 
-**`[drift]`** compares the machinery prose against the shipped templates after
-re-applying init's substitutions. roll-call never rewrites files in a
-repository, so a template that moved ahead is reported, not applied. Name the
-file and summarize from the script's line. **Do not offer to overwrite
-anything**, and read a template and local pair side by side only when the user
-asks about a named drift. Config and the living record documents are not
-compared; their divergence is the install working.
+## 4. Whether anything is enforced
 
-**`[routing]`** is what the routing is costing: a required rule fired at and
-ignored, or a document growing in one of the expensive read paths. A rule
-being ignored is the script's finding to make, not an impression to form by
-scrolling a ledger.
+This plugin ships no hooks. Enforcement exists only if it was built in this
+repository with the `build-the-engine` skill. Find out which state this is,
+and say it plainly, because the two look the same from inside a session.
 
-**`[seats]`** is the roster's track record: a seat whose reproduced claims
-keep failing, a seat whose claims are mostly acted on unverified, and the
-claims still waiting for a verdict. A waiting claim is a reproduction task for
-the reconcile-board skill, not a doctor finding; here, only say how many there
-are and how long the oldest has waited.
+- **Read `.claude/settings.json`** and list the hook commands it wires.
+- **Glob `.claude/hooks/`** and list what is there.
+- **Wired and missing:** a command naming a file that does not exist. That
+  hook fails on every event, quietly.
+- **Present and unwired:** a hook file nothing invokes. Its guard is absent
+  and the file sitting there implies otherwise.
+- **Neither:** nothing is enforced. Routing is by instruction. Say that this
+  is the weak form the operating procedure itself warns about, and name the
+  `build-the-engine` skill.
 
-## 3. Output
+Where hooks are built, check that they are firing, from what they write:
+
+- **`.claude/.consults`** is the consult ledger. Do not read it whole; check
+  that it exists and Grep it for each seat's name. An empty ledger in an
+  active repository means no seat is being consulted at all.
+- **`.claude/.pending-findings`** is the queue of claims waiting for a
+  verdict. Count its lines and report the count and the seats. A waiting
+  claim is a task for the `reconcile-board` skill, not a finding here.
+- **`.claude/.agent-ran`** existing means an agent edited the tree and the
+  diff has not been reviewed.
+
+## 5. The tests
+
+Find the project's test directory and check for the four tests the build
+guide describes: the routing test, the document contract, the permanent
+refusals, and the reachability test. Report which are absent.
+
+If the refusals test is present and its list is empty, it is red on purpose.
+A suite that is green **including** that test, with an empty list, has been
+made green by deleting a guard, and that is worth saying plainly.
+
+## 6. Output
 
 Group by severity:
 
-- **Broken.** A guard that cannot run. Name the fix.
-- **Asleep.** A guard that runs but can never fire. Usually a dead rule.
-- **Unknown.** Judgment the engine is missing, ordered by which seat it disables.
-- **Drift.** Templates that moved on.
-- **Waiting.** Claims in the queue with no verdict, and any seat the track
-  record says to check before believing.
+- **Broken.** The procedure is not imported, or a wired hook is missing.
+- **Asleep.** A guard that exists and can never fire. Usually a dead rule.
+- **Unenforced.** What is running on instruction alone.
+- **Unknown.** Judgment the process is missing, ordered by which seat it
+  disables.
+- **Waiting.** Claims in the queue with no verdict.
 
 If everything is healthy, say so in one line and stop.

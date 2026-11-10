@@ -1,11 +1,11 @@
----
+```yaml
 name: agent-brief
 description: >
   The standing brief every roll-call seat carries into a consult: the claim
   labels, the track record, and where the durable facts live. Preloaded into
   each seat by its skills list; not a command.
 user-invocable: false
----
+```
 
 # Standing brief: read this before answering
 

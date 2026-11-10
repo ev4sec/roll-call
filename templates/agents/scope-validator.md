@@ -1,4 +1,4 @@
----
+```yaml
 name: scope-validator
 description: >
   Product and scope conscience for {{PROJECT}}. Use it to check whether a
@@ -14,7 +14,7 @@ model: opus
 effort: medium
 skills:
   - agent-brief
----
+```
 
 # {{PROJECT}} Scope Validator
 

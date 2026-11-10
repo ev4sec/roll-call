@@ -1,3 +1,10 @@
+# Template: the routing table
+
+init writes the block below to `.claude/routing.toml`, then replaces the
+example rules with two or three that match real files in the repository.
+Everything inside the fence is the file; nothing outside it is.
+
+```toml
 # Which agent owns which change, as data rather than prose.
 #
 # **Why this is a file and not a paragraph.** The operating procedure carried a
@@ -8,9 +15,10 @@
 # named in that prose table. The instruction was read at session start and lost
 # by the third edit.
 #
-# So routing is machine-readable, `consult_router.py` reads it on every write,
-# and an owed consult that has not happened produces a message the session cannot
-# scroll past. Prefer a test to a paragraph; this is that rule applied to the
+# So routing is machine-readable. Once the router hook has been built in this
+# repository it reads this file on every write, and an owed consult that has
+# not happened produces a message the session cannot scroll past. Until then
+# the session reads this file from the operating procedure, on instruction. Prefer a test to a paragraph; this is that rule applied to the
 # process itself.
 #
 # ## Fields
@@ -61,7 +69,8 @@
 # Every rule must name a seat that exists, and **every seat must have a rule**: 
 # an agent the mechanism never invokes is a roster entry pretending to be
 # coverage. One seat was exactly that for two days on the origin project and
-# nobody noticed. `tests/test_consult_router.py` asserts both directions.
+# nobody noticed. The routing test asserts both directions, and
+# /roll-call:doctor checks both by hand.
 #
 # ---------------------------------------------------------------------------
 # INSTANTIATION: everything below is an EXAMPLE. Delete the rules that do not
@@ -82,10 +91,6 @@ max_parallel = 4
 # firing still blocks, in one line that names the owed agents and rule ids and
 # points back at this file. "full" restores the complete block on every firing.
 repeat_style = "compact"
-# The router appends one line per firing to `.claude/.route-stats`, hook-read
-# only and pruned to a 30-day window, so /roll-call:doctor can report rules
-# that fire constantly and never get consulted. Set false to write nothing.
-stats = true
 
 # ------------------------------------------------------------ data and shape --
 
@@ -253,3 +258,4 @@ paths = ["tests/**"]
 level = "advised"
 question = "What would still be broken if every one of these passed?"
 why = "The most expensive defects tend to be coverage failures rather than logic failures."
+```

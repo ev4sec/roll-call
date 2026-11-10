@@ -1,14 +1,24 @@
+# The engine config
+
+The hooks read one file, `.claude/engine.toml`, so that everything
+project-specific lives in one place and the hooks themselves stay the
+same from project to project. Write the block below to that path, then
+set each value from what the repository actually is.
+
+Every key has a default, listed here as the value shown. A hook must
+treat a missing key as that default, and a file that exists and cannot be
+parsed as all defaults, said out loud once and never fatal.
+
+```toml
 # The one place a project describes itself to the engine.
 #
 # Everything project-specific that the hooks need lives here, so the hooks
-# themselves stay portable. This file belongs to your project and is yours to
-# edit. The hooks that read it ship with the roll-call plugin and are read-only;
-# you never have to touch them.
+# themselves stay portable. This file and the hooks under .claude/hooks/ both
+# belong to your project and are yours to edit.
 #
 # Every key has a default built into the hooks. A missing key is not an error;
-# it means "use the default". A missing file is not an error either, so a hook
-# dropped into a project with no engine.toml still runs, in its most generic
-# form.
+# it means "use the default". The file itself is the switch: a hook does
+# nothing at all in a repository where this file does not exist.
 
 [project]
 # Human-readable name. Appears in every hook message the session sees.
@@ -95,3 +105,4 @@ required_in_wheel = []
 # Project-specific checks go in `.claude/scan-rules.toml`, which is optional.
 # The suppression comment is `<slug>: allow <check-id> - <reason>`.
 enabled = true
+```

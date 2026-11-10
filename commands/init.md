@@ -1,90 +1,130 @@
 ---
-description: Set up roll-call in this repository. Detects the stack, writes the engine documents and agent roster into .claude/, and seeds a routing table from the real file layout.
-allowed-tools: Read, Glob, Grep, Edit(.claude/**), Bash(python3 ${CLAUDE_PLUGIN_ROOT}/scripts/scaffold.py:*), Bash(python ${CLAUDE_PLUGIN_ROOT}/scripts/scaffold.py:*), Bash(py -3 ${CLAUDE_PLUGIN_ROOT}/scripts/scaffold.py:*)
+description: Set up roll-call in this repository. Detects the project, writes the process documents and agent roster into .claude/, and seeds a routing table from the real file layout.
+allowed-tools: Read, Grep, Glob
 ---
 
 # Set up roll-call in this repository
 
-You are standing up a development engine in a repository you have not seen
-before. Two things matter more than finishing quickly.
+You are standing up a development process in a repository you have not seen
+before. Three things matter more than finishing quickly.
 
-**Nothing gets destroyed.** The user did not ask for a merge. Existing files
-win every collision, and `scaffold.py` enforces that, so do not hand-write
-around it.
+**Nothing gets destroyed.** The user did not ask for a merge. An existing file
+wins every collision: if the target exists, you do not write it, and you say
+so by name.
 
-**Nothing gets guessed into a document that governs a decision.** Roughly twenty
-placeholders need judgment you do not have, about who the user is and what makes
-this product high stakes. Leave every one of them visible. A document that is
-authoritative and wrong is the failure this whole engine was built about, and
-you would be creating one on your first contact with the repository.
+**Nothing gets guessed into a document that governs a decision.** Roughly
+twenty placeholders need judgment you do not have, about who the user is and
+what makes this product high stakes. Leave every one of them visible. A
+document that is authoritative and wrong is the failure this whole process was
+built about, and you would be creating one on your first contact with the
+repository.
+
+**Nothing is claimed that is not true.** This plugin ships no hooks. What you
+are about to write is the process, the roster, and the routing table. Nothing
+you write here enforces a consult. Say that in the report, and name the
+`build-the-engine` skill as the way to get enforcement.
 
 ## 1. Look before you touch anything
 
 Work it out yourself. Do not interrogate the user.
 
-- **Stack.** `pyproject.toml` means python, `package.json` node, `Cargo.toml`
-  rust, `go.mod` go, `*.csproj` dotnet. Anything else is `generic`.
 - **Project name and slug.** From the manifest if there is one, otherwise the
-  directory name. Slug is lowercase, hyphen or underscore only.
+  directory name. The slug is lowercase, hyphen or underscore only.
 - **Source root.** Where the product's own code lives, repo-relative. Not the
-  repo root unless it genuinely is.
-- **Test directory and command.** What the project already uses. Do not impose
-  pytest on a repo that runs `npm test`.
-- **Interpreter and plan.** Run the scaffold from section 3 with `--dry-run`
-  and the values you just detected, using `python3`. If that spelling is
-  missing, fails to parse the script, or exits 3 (the interpreter reported
-  itself older than 3.11), try `python`, then `py -3`. roll-call needs **3.11
-  or newer**. The spelling that works is the one to use from here on, and the
-  dry run's report is the plan you show the user in section 2. **Do not probe
-  `--version` separately**; the dry run already answers it, writes nothing,
-  and its permission is the one this command holds.
-
-If no interpreter of 3.11+ exists, say so plainly and stop. Name what to
-install. **Never install anything yourself.** The hooks will be inert until it
-is fixed, and a half-set-up engine that looks finished is worse than none.
+  repo root unless it truly is.
+- **What already exists.** `CLAUDE.md`, anything under `.claude/`, and
+  especially `.claude/agents/`. List every file that is already there.
 
 ## 2. Tell the user what is about to happen, and get a yes
 
-Report what you detected, then say plainly: this writes about 30 files into
-`.claude/`, `CLAUDE.md`, and the test directory, and they will appear as
-uncommitted changes. One of them, `test_permanent_refusals.py`, fails until
-its refusal list is filled in, so a suite run right after init is expected to
-show one failure by design. The test hook reports that one failure once per
-session rather than blocking on it; any other failure still blocks.
+Report what you detected, then say plainly:
+
+- This writes about 25 files: the documents and the roster under `.claude/`,
+  and `CLAUDE.md`. They will appear as uncommitted changes.
+- Each write will ask for approval, because this command pre-approves nothing
+  but reading. Claude Code treats `.claude/` as a sensitive location, so
+  allowing edits for the session does not cover it: expect a prompt per file,
+  about 25 in all. Do not try to change their permission settings to avoid
+  that.
+- There are two ways to do the copying, and it is their choice. You can write
+  each file yourself, which needs only edit approval and takes longer. Or you
+  can write one short copy script into the repository, show it, run it once
+  with their approval, and delete it, which is faster and treats every file
+  identically, and is one approval where the other way is about 25. Offer
+  both and recommend the script unless they would rather read each file as it
+  lands. Do not start a script without asking.
+- Name every existing file that will be left alone.
+- No hook is installed. Routing will be by instruction until the hooks are
+  built.
 
 Wait for confirmation. This is their repository.
 
-## 3. Run the scaffold
+## 3. Write the documents
+
+The templates are in `${CLAUDE_PLUGIN_ROOT}/templates/`. For each one: read
+it, apply the changes below, and write it to its target **only if the target
+does not exist**.
+
+| Template | Target |
+|---|---|
+| `operating-procedure.md`, `measurement-traps.md`, `agent-findings.md`, `slice.md`, `vision.md`, `roadmap.md`, `architecture.md`, `security-invariants.md`, `LESSONS.md`, `parked-roles.md` | `.claude/` under the same name |
+| `agent-brief.md` | `.claude/skills/agent-brief/SKILL.md` |
+| `agents/*.md` | `.claude/agents/` under the same name |
+| `repro/README.md` | `.claude/repro/README.md` |
+| `routing.md` | `.claude/routing.toml`, holding only what is inside the template's `toml` fence |
+| `CLAUDE.md` | `CLAUDE.md` at the repository root; see section 4 |
+
+**The same four changes for every file, and no others.** Mechanical work done
+slightly differently each time is how two installs end up disagreeing, so do
+not improve a template while copying it.
+
+1. **Fill the mechanical placeholders** from what you detected: `{{PROJECT}}`
+   and `PROJECT_NAME` become the project name; `{{slug}}`, `{{PROJECT_SLUG}}`,
+   `PROJECT_SLUG`, and `project_slug` become the slug. Replace
+   `src/project_slug` and `src/PROJECT_SLUG` with the detected source root
+   first, before the bare slug, or the path becomes a guess about the layout.
+2. **Leave every other `{{...}}` placeholder exactly as it is.** Those are
+   the judgment slots.
+3. **Restore the frontmatter.** `agent-brief.md` and each agent template open
+   with a fenced `yaml` block. In the file you write, that block is the
+   frontmatter: put its contents between two `---` lines at the top, with no
+   fence.
+4. **Lift the installer notes out.** Remove each `<!-- INSTANTIATION: ... -->`
+   comment block from the file you write, and collect them, under a heading
+   naming the file each came from, into `.claude/TEMPLATE-NOTES.md`. The
+   routing table carries its note as a `#` comment block headed
+   `INSTANTIATION`; lift that out the same way, since it calls the rules below
+   it examples and they will not be. Those notes are written for a person. Left inline they would be read by every
+   agent on every consult. Nothing should link to that file.
+
+## 4. `CLAUDE.md` merges; it is the one file that does
+
+- **No `CLAUDE.md`:** write the template, with the four changes applied.
+- **A `CLAUDE.md` that already contains `@.claude/operating-procedure.md` or
+  `<!-- roll-call:begin -->`:** leave it alone.
+- **Any other existing `CLAUDE.md`:** append this section to the end and
+  change nothing above it.
 
 ```
-python "${CLAUDE_PLUGIN_ROOT}/scripts/scaffold.py" \
-  --project-name "<name>" --slug "<slug>" \
-  --source-root "<source root>" --test-dir "<test dir>"
+<!-- roll-call:begin -->
+## Operating procedure
+
+This project uses the roll-call process. The standing procedure, the
+routing table, and the agent roster live under `.claude/` and belong
+to this repository.
+
+@.claude/operating-procedure.md
+<!-- roll-call:end -->
 ```
 
-Use the interpreter spelling section 1 settled on, without `--dry-run` this
-time. Read the report: `written`, `skipped`, `appended`, and the count of
-judgment placeholders.
-
-## 4. Fill in `engine.toml`
-
-This is the one file the hooks read. Edit `.claude/engine.toml` with what you
-detected: `source_root`, the test `command` and `interpreter`, `root_marker`,
-and the dependency `manifests` that apply.
-
-Then switch off what does not apply, and say so in the report rather than
-leaving it silently on:
-
-- `[artifact] enabled = false` for anything that is not a distributable package.
-  That is the right answer for an application.
-- Leave `[dependencies] banned` empty unless the project has an actual stated
-  constraint a dependency could violate. An empty list is the common answer.
+Skipping the file entirely would leave the procedure unimported and the
+process inert, which looks like a working install and is not one.
 
 ## 5. Seed the routing table
 
-`.claude/routing.toml` ships with rules written for a project that is not this
-one. Replace them with **two or three rules that match real files here**, and no
-more.
+`.claude/routing.toml` arrives with rules written for a project that is not
+this one. Replace them with **two or three rules that match real files here**,
+and no more.
 
 Two or three is not modesty, it is the point. A table that fires on every edit
 in a busy directory gets muted within a day and takes the credible rules down
@@ -93,41 +133,37 @@ the data model, a published interface, the security-sensitive path, the
 packaging config.
 
 Every rule needs a real question, not a topic. Routing that names an agent
-without naming the decision produces a survey, and the engine needs a
+without naming the decision produces a survey, and the process needs a
 recommendation stated as the thing to build.
 
-If a rule aims at a document, name the exact file (`.claude/slice.md`, not
-`**/*.md`): the router drops doc and lockfile edits before matching unless a
-rule names the file literally, so a doc glob is coverage on paper that
-`doctor` will flag.
+Check each rule's `paths` with Glob before you keep it. A rule that matches no
+file is a seat nobody will ever be sent to.
 
-**Set every rule to `level = "advised"`.** Nothing blocks on a fresh install.
-The user turns on enforcement once the table describes their codebase rather
-than your first guess at it. Say this in the report.
+**Set every rule to `level = "advised"`.** The user promotes a rule to
+`required` once the table describes their codebase and not your first guess at
+it. Delete any rule you did not rewrite.
 
-Delete any rule you did not rewrite. A rule pointing at paths that do not exist
-is dead weight that `doctor` will flag forever.
-
-## 6. Report, and end with one thing to try
+## 6. Report, and end with one thing to do
 
 Keep it short. Four parts:
 
 1. **What happened.** Files written, files left alone by name, and whether
-   `CLAUDE.md` was created or appended to.
-2. **What is live.** Which guards are active, and which are off and why.
-   "Artifact check is off because this is not a distributable package" is
-   useful; silence is not.
-3. **What is still unknown.** The judgment placeholder count, where they are,
-   and that `/roll-call:doctor` lists them. Name the two or three that matter
-   most rather than all of them. Say that `test_permanent_refusals.py` fails
-   on purpose until its list is filled, so the first red test run is expected
-   and not a defect, and that the test hook reports it without blocking.
-4. **One file to edit.** Name an actual file covered by a rule you just wrote,
-   and tell them that editing it will summon the owning agent with its question.
-
-That last line is the sixty seconds where the whole thing clicks. Do not skip it
-and do not bury it.
+   `CLAUDE.md` was created, appended to, or untouched.
+2. **What is and is not enforced.** The procedure is now imported into every
+   session, so the session knows the routing table and the roster. No hook
+   exists, so nothing stops an edit that skips a consult. That is the weak
+   form, and the procedure itself says so. The `build-the-engine` skill
+   builds the hooks in this repository from a specification, one file at a
+   time, with the user approving each. The documents refer to four tests
+   (routing, document contract, permanent refusals, reachability); init does
+   not write those either, and the same skill describes them.
+3. **What is still unknown.** How many judgment placeholders remain, where
+   they are, and that `/roll-call:doctor` lists them. Name the two or three
+   that matter most.
+4. **One thing to do next.** Name an actual file covered by a rule you just
+   wrote, and the seat that owns it, so the user can ask for that consult and
+   see what a seat's answer looks like.
 
 Do not explain the architecture. `CLAUDE.md` now imports the operating
-procedure, so from the next message on the session already knows how the engine
-works and the user can simply ask.
+procedure, so from the next message on the session already knows how the
+process works and the user can simply ask.
